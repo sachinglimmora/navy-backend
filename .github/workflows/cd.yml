@@ -7,11 +7,23 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: glimmora/aegis-api
 
 jobs:
+  setup:
+    name: Setup Environment
+    runs-on: ubuntu-latest
+    outputs:
+      image_name: ${{ steps.prepare.outputs.image_name }}
+    steps:
+      - id: prepare
+        run: |
+          # Use repository owner and ensure it's lowercase for GHCR
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "image_name=${OWNER}/aegis-api" >> $GITHUB_OUTPUT
+
   publish:
     name: Build & Push Image
+    needs: setup
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -36,7 +48,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ needs.setup.outputs.image_name }}
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
@@ -57,7 +69,7 @@ jobs:
   deploy-staging:
     name: Deploy — Staging
     runs-on: ubuntu-latest
-    needs: publish
+    needs: [publish, setup]
     if: github.ref == 'refs/heads/main'
     environment:
       name: "staging"
@@ -85,7 +97,7 @@ jobs:
               docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
             IMAGE_TAG="sha-$(echo '${{ github.sha }}' | cut -c1-7)"
-            export AEGIS_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
+            export AEGIS_IMAGE="${{ env.REGISTRY }}/${{ needs.setup.outputs.image_name }}:${IMAGE_TAG}"
             # Disable dev overrides for staging
             export AEGIS_DEV_MOUNT="/app"
             export AEGIS_DEV_COMMAND="uvicorn app.main:app --host 0.0.0.0 --port 8000"
@@ -104,7 +116,7 @@ jobs:
   deploy-production:
     name: Deploy — Production
     runs-on: ubuntu-latest
-    needs: publish
+    needs: [publish, setup]
     if: startsWith(github.ref, 'refs/tags/v')
     environment:
       name: "production"
@@ -131,7 +143,7 @@ jobs:
             echo "${{ secrets.GITHUB_TOKEN }}" | \
               docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            export AEGIS_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref_name }}"
+            export AEGIS_IMAGE="${{ env.REGISTRY }}/${{ needs.setup.outputs.image_name }}:${{ github.ref_name }}"
             # Disable dev overrides for production
             export AEGIS_DEV_MOUNT="/app"
             export AEGIS_DEV_COMMAND="uvicorn app.main:app --host 0.0.0.0 --port 8000"
