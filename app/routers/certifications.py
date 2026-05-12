@@ -45,8 +45,7 @@ def _cert_to_dict(c: Certification) -> dict:
     response_model=GenericResponse[list[dict]],
     summary="List Trainee Certifications",
     description=(
-        "Retrieve all training certifications and skill badges earned by "
-        "a specific trainee."
+        "Retrieve all training certifications and skill badges earned by a specific trainee."
     ),
 )
 async def list_trainee_certifications(
@@ -188,8 +187,7 @@ async def get_pending_certifications(
     response_model=GenericResponse[dict],
     summary="Verify Certification Validity",
     description=(
-        "Perform a real-time verification of a certificate's status, "
-        "expiration, and authenticity."
+        "Perform a real-time verification of a certificate's status, expiration, and authenticity."
     ),
 )
 async def verify_certification(

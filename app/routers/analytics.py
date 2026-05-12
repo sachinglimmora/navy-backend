@@ -21,8 +21,7 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
     response_model=GenericResponse[dict],
     summary="Trainee Performance Analytics",
     description=(
-        "Retrieve detailed competency records, trends, and session counts "
-        "for a specific trainee."
+        "Retrieve detailed competency records, trends, and session counts for a specific trainee."
     ),
 )
 async def trainee_analytics(

@@ -218,8 +218,7 @@ async def get_user(
     response_model=GenericResponse[UserOut],
     summary="Update User Profile",
     description=(
-        "Update personnel details. Users can update their own data; "
-        "Admins have full write access."
+        "Update personnel details. Users can update their own data; Admins have full write access."
     ),
 )
 async def update_user(

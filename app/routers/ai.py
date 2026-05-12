@@ -70,8 +70,7 @@ def _log_ai_interaction(
     response_model=GenericResponse[dict],
     summary="AI Chat Assistant",
     description=(
-        "Interact with the onboard LLM (Ollama) for mission-specific "
-        "queries and guidance."
+        "Interact with the onboard LLM (Ollama) for mission-specific queries and guidance."
     ),
 )
 async def ai_chat(
@@ -186,8 +185,7 @@ async def ai_assess(
     response_model=GenericResponse[dict],
     summary="AI Remediation Planning",
     description=(
-        "Generate a personalized training recovery plan based on identified "
-        "performance gaps."
+        "Generate a personalized training recovery plan based on identified performance gaps."
     ),
 )
 async def ai_remediate(
@@ -237,8 +235,7 @@ async def ai_remediate(
     response_model=GenericResponse[dict],
     summary="AI Contextual Hint",
     description=(
-        "Provide a doctrine-aligned guidance hint to the trainee during "
-        "an active simulation."
+        "Provide a doctrine-aligned guidance hint to the trainee during an active simulation."
     ),
 )
 async def ai_scenario_hint(
@@ -365,8 +362,7 @@ async def ai_override(
     response_model=GenericResponse[dict],
     summary="AI Engine Status",
     description=(
-        "Retrieve current LLM configuration, health status, and available "
-        "sovereign models."
+        "Retrieve current LLM configuration, health status, and available sovereign models."
     ),
 )
 async def get_model_info(

@@ -85,8 +85,7 @@ def _session_to_dict(s: TrainingSession) -> dict:
     status_code=201,
     summary="Initialize Training Session",
     description=(
-        "Create a new live training session instance for a trainee based "
-        "on a scenario template."
+        "Create a new live training session instance for a trainee based on a scenario template."
     ),
 )
 async def create_session(
@@ -225,8 +224,7 @@ async def pause_session(
     response_model=GenericResponse[SessionOut],
     summary="Conclude Training Session",
     description=(
-        "Finalize a session, recording the end time, instructor notes, "
-        "and final performance score."
+        "Finalize a session, recording the end time, instructor notes, and final performance score."
     ),
 )
 async def end_session(
@@ -299,8 +297,7 @@ async def get_telemetry(
     response_model=GenericResponse[dict],
     summary="Get Replay Data",
     description=(
-        "Retrieve the data required to reconstruct and playback a "
-        "completed training session."
+        "Retrieve the data required to reconstruct and playback a completed training session."
     ),
 )
 async def get_replay(

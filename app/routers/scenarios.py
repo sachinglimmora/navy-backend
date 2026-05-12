@@ -188,8 +188,7 @@ async def update_scenario(
     response_model=GenericResponse[dict],
     summary="Archive Scenario",
     description=(
-        "Soft-delete a scenario by marking it as archived. "
-        "It will no longer appear in the list."
+        "Soft-delete a scenario by marking it as archived. It will no longer appear in the list."
     ),
 )
 async def archive_scenario(
@@ -265,8 +264,7 @@ async def start_scenario(
     response_model=GenericResponse[list[ScenarioOut]],
     summary="Get Scenario Variants",
     description=(
-        "List scenarios that share the same domain and similar tags as the "
-        "specified scenario."
+        "List scenarios that share the same domain and similar tags as the specified scenario."
     ),
 )
 async def get_variants(

@@ -74,8 +74,7 @@ tags_metadata = [
     {
         "name": "Training Sessions",
         "description": (
-            "Active simulation execution, real-time telemetry logging, "
-            "and session orchestration."
+            "Active simulation execution, real-time telemetry logging, and session orchestration."
         ),
     },
     {
