@@ -42,6 +42,65 @@ async def lifespan(app: FastAPI):
     logger.info("GLIMMORA AEGIS backend shutting down.")
 
 
+tags_metadata = [
+    {
+        "name": "Authentication",
+        "description": (
+            "Identity and Access Management. Handles login, registration, and token validation."
+        ),
+    },
+    {
+        "name": "Users",
+        "description": "User profile management and administrative user controls.",
+    },
+    {
+        "name": "Digital Twin",
+        "description": (
+            "Naval personnel personality and performance modeling for AI-driven simulations."
+        ),
+    },
+    {
+        "name": "Doctrine",
+        "description": (
+            "Management of naval training manuals, procedures, and standard operating instructions."
+        ),
+    },
+    {
+        "name": "Scenarios",
+        "description": (
+            "Simulation design, template management, and AI-assisted scenario generation."
+        ),
+    },
+    {
+        "name": "Training Sessions",
+        "description": (
+            "Active simulation execution, real-time telemetry logging, "
+            "and session orchestration."
+        ),
+    },
+    {
+        "name": "Analytics",
+        "description": "Data-driven performance evaluation, mission debriefs, and training trends.",
+    },
+    {
+        "name": "Certifications",
+        "description": (
+            "Issuance and verification of official training credentials and skill badges."
+        ),
+    },
+    {
+        "name": "AI Engine",
+        "description": (
+            "Direct interaction with the sovereign LLM (Ollama) and RAG (Qdrant) services."
+        ),
+    },
+    {
+        "name": "System",
+        "description": "Infrastructure health, audit logs, and global configuration settings.",
+    },
+]
+
+
 app = FastAPI(
     title="GLIMMORA AEGIS — Navy Training Platform API",
     description=(
@@ -52,6 +111,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    openapi_tags=tags_metadata,
     lifespan=lifespan,
 )
 
@@ -67,16 +127,16 @@ app.add_middleware(
 # Audit logging middleware
 app.add_middleware(AuditLoggingMiddleware)
 
-# Mount all API routers under /api prefix
+# Mount all API routers under /api prefix — Ordered by logical training flow
 app.include_router(auth.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
-app.include_router(scenarios.router, prefix="/api")
-app.include_router(sessions.router, prefix="/api")
-app.include_router(ai.router, prefix="/api")
-app.include_router(analytics.router, prefix="/api")
-app.include_router(certifications.router, prefix="/api")
 app.include_router(digital_twin.router, prefix="/api")
 app.include_router(doctrine.router, prefix="/api")
+app.include_router(scenarios.router, prefix="/api")
+app.include_router(sessions.router, prefix="/api")
+app.include_router(analytics.router, prefix="/api")
+app.include_router(certifications.router, prefix="/api")
+app.include_router(ai.router, prefix="/api")
 app.include_router(system.router, prefix="/api")
 
 # WebSocket routes are already registered inside the session and digital_twin routers

@@ -9,15 +9,27 @@ from app.dependencies import get_current_user, require_roles
 from app.models.scenario import Scenario
 from app.models.session import Session as TrainingSession
 from app.models.user import User
+from app.schemas.base import GenericResponse
 from app.schemas.scenario import (
     ScenarioCreate,
     ScenarioGenerateRequest,
+    ScenarioList,
+    ScenarioOut,
     ScenarioStartRequest,
     ScenarioUpdate,
 )
 from app.services import ai_service
 
 router = APIRouter(prefix="/scenarios", tags=["Scenarios"])
+
+
+def _extract_json(text: str) -> str:
+    """Extract JSON string from potential markdown code blocks."""
+    if "```json" in text:
+        return text.split("```json")[1].split("```")[0].strip()
+    if "```" in text:
+        return text.split("```")[1].split("```")[0].strip()
+    return text.strip()
 
 
 def _scenario_to_dict(s: Scenario) -> dict:
@@ -37,12 +49,22 @@ def _scenario_to_dict(s: Scenario) -> dict:
     }
 
 
-@router.get("", response_model=dict)
+@router.get(
+    "",
+    response_model=GenericResponse[ScenarioList],
+    summary="List Scenarios",
+    description=(
+        "Retrieve a paginated list of all non-archived training scenarios. "
+        "Supports filtering by domain and difficulty level."
+    ),
+)
 async def list_scenarios(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    domain: str | None = None,
-    difficulty: str | None = None,
+    page: int = Query(1, ge=1, description="Page number to retrieve"),
+    page_size: int = Query(20, ge=1, le=100, description="Number of items per page"),
+    domain: str | None = Query(
+        None, description="Filter by operational domain (e.g., surface, subsurface)"
+    ),
+    difficulty: str | None = Query(None, description="Filter by scenario difficulty"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -66,7 +88,16 @@ async def list_scenarios(
     }
 
 
-@router.post("", response_model=dict, status_code=201)
+@router.post(
+    "",
+    response_model=GenericResponse[ScenarioOut],
+    status_code=201,
+    summary="Create Scenario",
+    description=(
+        "Manually create a new training scenario. "
+        "Requires Instructor, Evaluator, or Admin privileges."
+    ),
+)
 async def create_scenario(
     body: ScenarioCreate,
     current_user: User = Depends(require_roles("instructor", "evaluator", "admin")),
@@ -97,7 +128,12 @@ async def create_scenario(
     }
 
 
-@router.get("/{scenario_id}", response_model=dict)
+@router.get(
+    "/{scenario_id}",
+    response_model=GenericResponse[ScenarioOut],
+    summary="Get Scenario Details",
+    description="Retrieve full details for a specific scenario by its unique identifier.",
+)
 async def get_scenario(
     scenario_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -114,7 +150,15 @@ async def get_scenario(
     }
 
 
-@router.put("/{scenario_id}", response_model=dict)
+@router.put(
+    "/{scenario_id}",
+    response_model=GenericResponse[ScenarioOut],
+    summary="Update Scenario",
+    description=(
+        "Modify an existing scenario's parameters. "
+        "Requires Instructor, Evaluator, or Admin privileges."
+    ),
+)
 async def update_scenario(
     scenario_id: uuid.UUID,
     body: ScenarioUpdate,
@@ -139,7 +183,15 @@ async def update_scenario(
     }
 
 
-@router.delete("/{scenario_id}", response_model=dict)
+@router.delete(
+    "/{scenario_id}",
+    response_model=GenericResponse[dict],
+    summary="Archive Scenario",
+    description=(
+        "Soft-delete a scenario by marking it as archived. "
+        "It will no longer appear in the list."
+    ),
+)
 async def archive_scenario(
     scenario_id: uuid.UUID,
     current_user: User = Depends(require_roles("instructor", "evaluator", "admin")),
@@ -161,7 +213,13 @@ async def archive_scenario(
     }
 
 
-@router.post("/{scenario_id}/start", response_model=dict, status_code=201)
+@router.post(
+    "/{scenario_id}/start",
+    response_model=GenericResponse[dict],
+    status_code=201,
+    summary="Start Session from Scenario",
+    description="Instantiate a live training session based on this scenario template.",
+)
 async def start_scenario(
     scenario_id: uuid.UUID,
     body: ScenarioStartRequest,
@@ -202,7 +260,15 @@ async def start_scenario(
     }
 
 
-@router.get("/{scenario_id}/variants", response_model=dict)
+@router.get(
+    "/{scenario_id}/variants",
+    response_model=GenericResponse[list[ScenarioOut]],
+    summary="Get Scenario Variants",
+    description=(
+        "List scenarios that share the same domain and similar tags as the "
+        "specified scenario."
+    ),
+)
 async def get_variants(
     scenario_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -230,7 +296,15 @@ async def get_variants(
     }
 
 
-@router.post("/generate", response_model=dict)
+@router.post(
+    "/generate",
+    response_model=GenericResponse[ScenarioOut],
+    summary="AI-Generate Scenario",
+    description=(
+        "Use the Ollama LLM to autonomously generate a naval training scenario "
+        "based on specified mission parameters."
+    ),
+)
 async def generate_scenario(
     body: ScenarioGenerateRequest,
     current_user: User = Depends(require_roles("instructor", "evaluator", "admin")),
@@ -255,7 +329,8 @@ async def generate_scenario(
     import json as _json
 
     try:
-        definition = _json.loads(ai_response)
+        cleaned_text = _extract_json(ai_response)
+        definition = _json.loads(cleaned_text)
     except Exception:
         definition = {"raw_output": ai_response, "parse_error": True}
 

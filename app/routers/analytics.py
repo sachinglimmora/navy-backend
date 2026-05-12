@@ -11,11 +11,20 @@ from app.models.competency import CompetencyRecord
 from app.models.session import Session as TrainingSession
 from app.models.user import Cohort, User
 from app.schemas.analytics import ReportRequest
+from app.schemas.base import GenericResponse
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 
-@router.get("/trainee/{user_id}", response_model=dict)
+@router.get(
+    "/trainee/{user_id}",
+    response_model=GenericResponse[dict],
+    summary="Trainee Performance Analytics",
+    description=(
+        "Retrieve detailed competency records, trends, and session counts "
+        "for a specific trainee."
+    ),
+)
 async def trainee_analytics(
     user_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -99,7 +108,15 @@ async def trainee_analytics(
     }
 
 
-@router.get("/cohort/{cohort_id}", response_model=dict)
+@router.get(
+    "/cohort/{cohort_id}",
+    response_model=GenericResponse[dict],
+    summary="Cohort Aggregated Analytics",
+    description=(
+        "Aggregate performance data across all members of a training cohort, "
+        "identifying top and weakest domains."
+    ),
+)
 async def cohort_analytics(
     cohort_id: uuid.UUID,
     current_user: User = Depends(require_roles("instructor", "evaluator", "fleet", "admin")),
@@ -168,7 +185,15 @@ async def cohort_analytics(
     }
 
 
-@router.get("/fleet", response_model=dict)
+@router.get(
+    "/fleet",
+    response_model=GenericResponse[dict],
+    summary="Fleet-Wide Analytics Summary",
+    description=(
+        "High-level performance summary for the entire fleet, including active "
+        "session counts and certification trends. Restricted to Fleet HQ."
+    ),
+)
 async def fleet_analytics(
     current_user: User = Depends(require_roles("fleet", "admin")),
     db: Session = Depends(get_db),
@@ -212,7 +237,15 @@ async def fleet_analytics(
     }
 
 
-@router.get("/predictive/{user_id}", response_model=dict)
+@router.get(
+    "/predictive/{user_id}",
+    response_model=GenericResponse[dict],
+    summary="Predictive Performance Modeling",
+    description=(
+        "Generate a 30-90 day performance prediction and personalized training "
+        "trajectory for a specific trainee."
+    ),
+)
 async def predictive_analytics(
     user_id: uuid.UUID,
     current_user: User = Depends(require_roles("instructor", "evaluator", "fleet", "admin")),
@@ -293,7 +326,15 @@ async def predictive_analytics(
     }
 
 
-@router.get("/domain/{domain}", response_model=dict)
+@router.get(
+    "/domain/{domain}",
+    response_model=GenericResponse[dict],
+    summary="Domain Weakness Mapping",
+    description=(
+        "Analyze performance gaps within a specific operational domain across "
+        "all participating personnel."
+    ),
+)
 async def domain_weakness_map(
     domain: str,
     current_user: User = Depends(require_roles("instructor", "evaluator", "fleet", "admin")),
@@ -340,7 +381,15 @@ async def domain_weakness_map(
     }
 
 
-@router.post("/report", response_model=dict)
+@router.post(
+    "/report",
+    response_model=GenericResponse[dict],
+    summary="Generate Analytics Report",
+    description=(
+        "Export a customized JSON report based on specified filters, domains, "
+        "and performance metrics."
+    ),
+)
 async def generate_report(
     body: ReportRequest,
     current_user: User = Depends(require_roles("evaluator", "fleet", "admin")),

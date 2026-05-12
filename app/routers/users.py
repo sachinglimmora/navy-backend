@@ -2,6 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -10,10 +11,38 @@ from app.models.certification import Certification
 from app.models.competency import CompetencyRecord
 from app.models.session import Session as TrainingSession
 from app.models.user import User
-from app.schemas.user import UserCreate, UserUpdate
+from app.schemas.base import GenericResponse
+from app.schemas.user import UserAnalytics, UserCreate, UserList, UserOut, UserUpdate
 from app.services.auth_service import hash_password
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
+
+@router.get(
+    "/roles/summary",
+    response_model=GenericResponse[dict[str, int]],
+    summary="Get Role Distribution",
+    description=(
+        "Returns a summary of active users grouped by their roles. "
+        "Access restricted to Admin and Fleet HQ."
+    ),
+)
+async def get_roles_summary(
+    current_user: User = Depends(require_roles("admin", "fleet")),
+    db: Session = Depends(get_db),
+):
+    """Get count of users per role. Admin and fleet only."""
+    results = (
+        db.query(User.role, func.count(User.id).label("count"))
+        .filter(User.is_active)
+        .group_by(User.role)
+        .all()
+    )
+    return {
+        "success": True,
+        "message": "Role summary retrieved",
+        "data": {r.role: r.count for r in results},
+    }
 
 
 def _user_to_dict(user: User) -> dict:
@@ -33,11 +62,19 @@ def _user_to_dict(user: User) -> dict:
     }
 
 
-@router.get("", response_model=dict)
+@router.get(
+    "",
+    response_model=GenericResponse[UserList],
+    summary="List All Users",
+    description=(
+        "Retrieve a paginated list of all personnel. Supports filtering by role. "
+        "Access restricted to Admin and Fleet HQ."
+    ),
+)
 async def list_users(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    role_filter: str | None = Query(None, alias="role"),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    role_filter: str | None = Query(None, alias="role", description="Filter by user role"),
     current_user: User = Depends(require_roles("admin", "fleet")),
     db: Session = Depends(get_db),
 ):
@@ -59,7 +96,13 @@ async def list_users(
     }
 
 
-@router.post("", response_model=dict, status_code=201)
+@router.post(
+    "",
+    response_model=GenericResponse[UserOut],
+    status_code=201,
+    summary="Register New Personnel",
+    description="Create a new user profile in the Aegis system. Access restricted to Admin.",
+)
 async def create_user(
     body: UserCreate,
     current_user: User = Depends(require_roles("admin")),
@@ -72,6 +115,17 @@ async def create_user(
             status_code=status.HTTP_409_CONFLICT,
             detail="Service number already registered",
         )
+
+    # Validate cohort_id if provided
+    if body.cohort_id:
+        from app.models.user import Cohort
+
+        cohort = db.query(Cohort).filter(Cohort.id == body.cohort_id).first()
+        if not cohort:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cohort with ID {body.cohort_id} does not exist",
+            )
 
     user = User(
         id=uuid.uuid4(),
@@ -97,10 +151,18 @@ async def create_user(
     }
 
 
-@router.get("/trainees", response_model=dict)
+@router.get(
+    "/trainees",
+    response_model=GenericResponse[UserList],
+    summary="List Active Trainees",
+    description=(
+        "Retrieve a list of all personnel currently in the 'trainee' role. "
+        "Accessible by Instructors and above."
+    ),
+)
 async def list_trainees(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     current_user: User = Depends(require_roles("instructor", "evaluator", "fleet", "admin")),
     db: Session = Depends(get_db),
 ):
@@ -120,7 +182,12 @@ async def list_trainees(
     }
 
 
-@router.get("/{user_id}", response_model=dict)
+@router.get(
+    "/{user_id}",
+    response_model=GenericResponse[UserOut],
+    summary="Get User Profile",
+    description="Retrieve detailed profile information for a specific user.",
+)
 async def get_user(
     user_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -146,7 +213,15 @@ async def get_user(
     }
 
 
-@router.patch("/{user_id}", response_model=dict)
+@router.patch(
+    "/{user_id}",
+    response_model=GenericResponse[UserOut],
+    summary="Update User Profile",
+    description=(
+        "Update personnel details. Users can update their own data; "
+        "Admins have full write access."
+    ),
+)
 async def update_user(
     user_id: uuid.UUID,
     body: UserUpdate,
@@ -162,6 +237,18 @@ async def update_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     update_data = body.model_dump(exclude_unset=True)
+
+    # Validate cohort_id if provided
+    if "cohort_id" in update_data and update_data["cohort_id"]:
+        from app.models.user import Cohort
+
+        cohort = db.query(Cohort).filter(Cohort.id == update_data["cohort_id"]).first()
+        if not cohort:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cohort with ID {update_data['cohort_id']} does not exist",
+            )
+
     # Role changes restricted to admin
     if "role" in update_data and current_user.role != "admin":
         raise HTTPException(
@@ -182,7 +269,12 @@ async def update_user(
     }
 
 
-@router.delete("/{user_id}", response_model=dict)
+@router.delete(
+    "/{user_id}",
+    response_model=GenericResponse[dict],
+    summary="Deactivate User Account",
+    description="Soft-delete a user profile by marking it as inactive. Access restricted to Admin.",
+)
 async def deactivate_user(
     user_id: uuid.UUID,
     current_user: User = Depends(require_roles("admin")),
@@ -204,7 +296,15 @@ async def deactivate_user(
     }
 
 
-@router.get("/{user_id}/analytics", response_model=dict)
+@router.get(
+    "/{user_id}/analytics",
+    response_model=GenericResponse[UserAnalytics],
+    summary="Get Personnel Analytics",
+    description=(
+        "Retrieve a comprehensive competency summary, session counts, "
+        "and certifications for a specific user."
+    ),
+)
 async def user_analytics(
     user_id: uuid.UUID,
     current_user: User = Depends(get_current_user),

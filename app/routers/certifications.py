@@ -10,6 +10,7 @@ from app.database import get_db
 from app.dependencies import get_current_user, require_roles
 from app.models.certification import Certification
 from app.models.user import User
+from app.schemas.base import GenericResponse
 from app.schemas.certification import CertificationIssue, CertificationRevoke
 
 router = APIRouter(prefix="/certifications", tags=["Certifications"])
@@ -39,7 +40,15 @@ def _cert_to_dict(c: Certification) -> dict:
     }
 
 
-@router.get("/trainee/{user_id}", response_model=dict)
+@router.get(
+    "/trainee/{user_id}",
+    response_model=GenericResponse[list[dict]],
+    summary="List Trainee Certifications",
+    description=(
+        "Retrieve all training certifications and skill badges earned by "
+        "a specific trainee."
+    ),
+)
 async def list_trainee_certifications(
     user_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -62,7 +71,16 @@ async def list_trainee_certifications(
     }
 
 
-@router.post("/issue", response_model=dict, status_code=201)
+@router.post(
+    "/issue",
+    response_model=GenericResponse[dict],
+    status_code=201,
+    summary="Issue Skill Certification",
+    description=(
+        "Officially grant a certification to a trainee for a specific domain. "
+        "Requires Evaluator or Admin privileges."
+    ),
+)
 async def issue_certification(
     body: CertificationIssue,
     current_user: User = Depends(require_roles("evaluator", "admin")),
@@ -97,7 +115,15 @@ async def issue_certification(
     }
 
 
-@router.get("/pending", response_model=dict)
+@router.get(
+    "/pending",
+    response_model=GenericResponse[list[dict]],
+    summary="List Eligible Candidates",
+    description=(
+        "Identify personnel who have completed required training sessions "
+        "but have not yet been certified in the domain."
+    ),
+)
 async def get_pending_certifications(
     current_user: User = Depends(require_roles("evaluator", "admin")),
     db: Session = Depends(get_db),
@@ -157,7 +183,15 @@ async def get_pending_certifications(
     }
 
 
-@router.get("/{cert_id}/verify", response_model=dict)
+@router.get(
+    "/{cert_id}/verify",
+    response_model=GenericResponse[dict],
+    summary="Verify Certification Validity",
+    description=(
+        "Perform a real-time verification of a certificate's status, "
+        "expiration, and authenticity."
+    ),
+)
 async def verify_certification(
     cert_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -191,7 +225,12 @@ async def verify_certification(
     }
 
 
-@router.put("/{cert_id}/revoke", response_model=dict)
+@router.put(
+    "/{cert_id}/revoke",
+    response_model=GenericResponse[dict],
+    summary="Revoke Official Certification",
+    description="Invalidate an existing certification. Requires Evaluator or Admin privileges.",
+)
 async def revoke_certification(
     cert_id: uuid.UUID,
     body: CertificationRevoke,

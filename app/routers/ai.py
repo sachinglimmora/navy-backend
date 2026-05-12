@@ -18,6 +18,7 @@ from app.schemas.ai import (
     HintRequest,
     RemediateRequest,
 )
+from app.schemas.base import GenericResponse
 from app.services import ai_service
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,15 @@ router = APIRouter(prefix="/ai", tags=["AI / LLM"])
 
 def _hash_text(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
+
+
+def _extract_json(text: str) -> str:
+    """Extract JSON string from potential markdown code blocks."""
+    if "```json" in text:
+        return text.split("```json")[1].split("```")[0].strip()
+    if "```" in text:
+        return text.split("```")[1].split("```")[0].strip()
+    return text.strip()
 
 
 def _log_ai_interaction(
@@ -55,7 +65,15 @@ def _log_ai_interaction(
     return audit
 
 
-@router.post("/chat", response_model=dict)
+@router.post(
+    "/chat",
+    response_model=GenericResponse[dict],
+    summary="AI Chat Assistant",
+    description=(
+        "Interact with the onboard LLM (Ollama) for mission-specific "
+        "queries and guidance."
+    ),
+)
 async def ai_chat(
     body: ChatRequest,
     current_user: User = Depends(get_current_user),
@@ -96,7 +114,15 @@ async def ai_chat(
     }
 
 
-@router.post("/assess", response_model=dict)
+@router.post(
+    "/assess",
+    response_model=GenericResponse[dict],
+    summary="AI Performance Assessment",
+    description=(
+        "Automated scoring of trainee actions against standard operating "
+        "procedures and expected outcomes."
+    ),
+)
 async def ai_assess(
     body: AssessRequest,
     current_user: User = Depends(require_roles("instructor", "evaluator", "admin")),
@@ -119,7 +145,8 @@ async def ai_assess(
     import json as _json
 
     try:
-        result = _json.loads(response_text)
+        cleaned_text = _extract_json(response_text)
+        result = _json.loads(cleaned_text)
         score = float(result.get("score", 0.5))
         feedback = result.get("feedback", response_text)
         competency_tags = result.get("competency_tags", [])
@@ -154,7 +181,15 @@ async def ai_assess(
     }
 
 
-@router.post("/remediate", response_model=dict)
+@router.post(
+    "/remediate",
+    response_model=GenericResponse[dict],
+    summary="AI Remediation Planning",
+    description=(
+        "Generate a personalized training recovery plan based on identified "
+        "performance gaps."
+    ),
+)
 async def ai_remediate(
     body: RemediateRequest,
     current_user: User = Depends(require_roles("instructor", "evaluator", "admin")),
@@ -197,7 +232,15 @@ async def ai_remediate(
     }
 
 
-@router.post("/scenario-hint", response_model=dict)
+@router.post(
+    "/scenario-hint",
+    response_model=GenericResponse[dict],
+    summary="AI Contextual Hint",
+    description=(
+        "Provide a doctrine-aligned guidance hint to the trainee during "
+        "an active simulation."
+    ),
+)
 async def ai_scenario_hint(
     body: HintRequest,
     current_user: User = Depends(get_current_user),
@@ -234,7 +277,15 @@ async def ai_scenario_hint(
     }
 
 
-@router.get("/audit-log", response_model=dict)
+@router.get(
+    "/audit-log",
+    response_model=GenericResponse[dict],
+    summary="AI Interaction Audit",
+    description=(
+        "Retrieve the complete log of LLM prompts and responses for oversight "
+        "and validation. Access restricted to Evaluators and above."
+    ),
+)
 async def get_audit_log(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -275,7 +326,15 @@ async def get_audit_log(
     }
 
 
-@router.post("/override", response_model=dict)
+@router.post(
+    "/override",
+    response_model=GenericResponse[dict],
+    summary="Override AI Decision",
+    description=(
+        "Manually correct or override an AI-generated assessment. Records "
+        "the instructor's rationale."
+    ),
+)
 async def ai_override(
     body: AIOverrideRequest,
     current_user: User = Depends(require_roles("instructor", "evaluator", "admin")),
@@ -301,7 +360,15 @@ async def ai_override(
     }
 
 
-@router.get("/model-info", response_model=dict)
+@router.get(
+    "/model-info",
+    response_model=GenericResponse[dict],
+    summary="AI Engine Status",
+    description=(
+        "Retrieve current LLM configuration, health status, and available "
+        "sovereign models."
+    ),
+)
 async def get_model_info(
     current_user: User = Depends(get_current_user),
 ):

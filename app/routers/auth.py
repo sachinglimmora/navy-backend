@@ -8,10 +8,8 @@ from app.config import settings
 from app.database import get_db
 from app.dependencies import blacklist_token, get_current_user, security_scheme
 from app.models.user import User
-from app.schemas.auth import (
-    LoginRequest,
-    RefreshRequest,
-)
+from app.schemas.auth import LoginRequest, RefreshRequest
+from app.schemas.base import GenericResponse
 from app.services.auth_service import (
     create_access_token,
     create_refresh_token,
@@ -22,7 +20,15 @@ from app.services.auth_service import (
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/login", response_model=dict)
+@router.post(
+    "/login",
+    response_model=GenericResponse[dict],
+    summary="Authenticate User",
+    description=(
+        "Exchange a service number and password for an access token and refresh token. "
+        "Returns full user profile."
+    ),
+)
 async def login(body: LoginRequest, db: Session = Depends(get_db)):
     """
     Authenticate a user with service_number + password.
@@ -67,7 +73,12 @@ async def login(body: LoginRequest, db: Session = Depends(get_db)):
     }
 
 
-@router.post("/refresh", response_model=dict)
+@router.post(
+    "/refresh",
+    response_model=GenericResponse[dict],
+    summary="Refresh Access Token",
+    description="Exchange a valid refresh token for a new short-lived access token.",
+)
 async def refresh_token(body: RefreshRequest):
     """
     Exchange a valid refresh token for a new access token.
@@ -93,7 +104,12 @@ async def refresh_token(body: RefreshRequest):
     }
 
 
-@router.post("/logout", response_model=dict)
+@router.post(
+    "/logout",
+    response_model=GenericResponse[None],
+    summary="User Logout",
+    description="Invalidate the current session's access token by adding it to the blacklist.",
+)
 async def logout(
     auth: HTTPAuthorizationCredentials = Depends(security_scheme),
     current_user: User = Depends(get_current_user),
@@ -109,7 +125,15 @@ async def logout(
     }
 
 
-@router.get("/me", response_model=dict)
+@router.get(
+    "/me",
+    response_model=GenericResponse[dict],
+    summary="Get Current User",
+    description=(
+        "Retrieve the profile of the currently authenticated user based on the "
+        "provided bearer token."
+    ),
+)
 async def get_me(current_user: User = Depends(get_current_user)):
     """Return the authenticated user's profile."""
     return {

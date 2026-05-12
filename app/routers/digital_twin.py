@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisco
 
 from app.dependencies import get_current_user
 from app.models.user import User
+from app.schemas.base import GenericResponse
 from app.services.auth_service import verify_token
 
 logger = logging.getLogger(__name__)
@@ -153,7 +154,15 @@ def _generate_system_graph(ship: dict) -> dict:
     }
 
 
-@router.get("/ships", response_model=dict)
+@router.get(
+    "/ships",
+    response_model=GenericResponse[list[dict]],
+    summary="List Ship Manifest",
+    description=(
+        "Retrieve the complete registry of naval vessels available in the "
+        "Aegis fleet management system."
+    ),
+)
 async def list_ships(
     current_user: User = Depends(get_current_user),
 ):
@@ -165,7 +174,15 @@ async def list_ships(
     }
 
 
-@router.get("/{ship_id}", response_model=dict)
+@router.get(
+    "/{ship_id}",
+    response_model=GenericResponse[dict],
+    summary="Get Digital Twin State",
+    description=(
+        "Retrieve real-time telemetry, position, and system health status for "
+        "a specific vessel's digital twin."
+    ),
+)
 async def get_ship_twin(
     ship_id: str,
     current_user: User = Depends(get_current_user),
@@ -183,7 +200,15 @@ async def get_ship_twin(
     }
 
 
-@router.get("/{ship_id}/systems", response_model=dict)
+@router.get(
+    "/{ship_id}/systems",
+    response_model=GenericResponse[dict],
+    summary="Get System Dependency Graph",
+    description=(
+        "Retrieve a structural mapping of ship systems (Propulsion, Power, Weapons) "
+        "and their operational dependencies."
+    ),
+)
 async def get_ship_systems(
     ship_id: str,
     current_user: User = Depends(get_current_user),
@@ -201,7 +226,15 @@ async def get_ship_systems(
     }
 
 
-@router.post("/{ship_id}/simulate", response_model=dict)
+@router.post(
+    "/{ship_id}/simulate",
+    response_model=GenericResponse[dict],
+    summary="Simulate System Fault",
+    description=(
+        "Inject a synthetic failure or degradation into a ship system to test "
+        "crew readiness and damage control response."
+    ),
+)
 async def simulate_fault(
     ship_id: str,
     body: dict,

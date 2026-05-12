@@ -10,6 +10,7 @@ from app.dependencies import get_current_user, require_roles
 from app.models.ai_audit import AIAudit
 from app.models.doctrine import DoctrineDocument
 from app.models.user import User
+from app.schemas.base import GenericResponse
 from app.schemas.doctrine import DoctrineCreate, RebuildIndexRequest
 from app.services import ai_service
 
@@ -32,7 +33,15 @@ def _doc_to_dict(d: DoctrineDocument) -> dict:
     }
 
 
-@router.get("", response_model=dict)
+@router.get(
+    "",
+    response_model=GenericResponse[list[dict]],
+    summary="List Doctrine Documents",
+    description=(
+        "Retrieve a collection of naval training manuals and standard operating "
+        "procedures. Supports filtering by domain."
+    ),
+)
 async def list_doctrine(
     domain: str = None,
     active_only: bool = True,
@@ -53,7 +62,16 @@ async def list_doctrine(
     }
 
 
-@router.post("", response_model=dict, status_code=201)
+@router.post(
+    "",
+    response_model=GenericResponse[dict],
+    status_code=201,
+    summary="Register New Doctrine",
+    description=(
+        "Upload or define a new training document or doctrine revision. "
+        "Requires Doctrine or Admin privileges."
+    ),
+)
 async def add_doctrine(
     body: DoctrineCreate,
     current_user: User = Depends(require_roles("doctrine", "admin")),
@@ -87,7 +105,15 @@ async def add_doctrine(
     }
 
 
-@router.put("/{doc_id}/approve", response_model=dict)
+@router.put(
+    "/{doc_id}/approve",
+    response_model=GenericResponse[dict],
+    summary="Approve Doctrine Revision",
+    description=(
+        "Mark a document as officially approved for use in training simulations "
+        "and AI grounding. Requires Fleet HQ or Admin privileges."
+    ),
+)
 async def approve_doctrine(
     doc_id: uuid.UUID,
     current_user: User = Depends(require_roles("doctrine", "fleet", "admin")),
@@ -109,7 +135,15 @@ async def approve_doctrine(
     }
 
 
-@router.post("/rebuild-index", response_model=dict)
+@router.post(
+    "/rebuild-index",
+    response_model=GenericResponse[dict],
+    summary="Rebuild RAG Index",
+    description=(
+        "Trigger a re-embedding process for doctrine documents into the sovereign "
+        "vector store (Qdrant) for AI grounding."
+    ),
+)
 async def rebuild_doctrine_index(
     body: RebuildIndexRequest,
     current_user: User = Depends(require_roles("doctrine", "admin")),
@@ -153,7 +187,15 @@ async def rebuild_doctrine_index(
     }
 
 
-@router.get("/ai-groundings", response_model=dict)
+@router.get(
+    "/ai-groundings",
+    response_model=GenericResponse[list[dict]],
+    summary="Retrieve AI Grounding History",
+    description=(
+        "Analysis of which doctrine documents have been utilized by the AI "
+        "assistant during training evaluations."
+    ),
+)
 async def get_ai_groundings(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -165,7 +207,7 @@ async def get_ai_groundings(
     # Get unique doctrine versions used in AI interactions
     versions_used = (
         db.query(AIAudit.doctrine_version_used)
-        .filter(AIAudit.doctrine_version_used is not None)
+        .filter(AIAudit.doctrine_version_used.is_not(None))
         .distinct()
         .all()
     )

@@ -7,7 +7,7 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-OLLAMA_TIMEOUT = httpx.Timeout(60.0, connect=10.0)
+OLLAMA_TIMEOUT = httpx.Timeout(180.0, connect=10.0)
 
 
 async def chat(messages: list[dict[str, str]], model: str | None = None) -> str:

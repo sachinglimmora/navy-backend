@@ -10,7 +10,14 @@ from app.database import get_db
 from app.dependencies import get_current_user, require_roles
 from app.models.session import Session as TrainingSession
 from app.models.user import User
-from app.schemas.session import InjectEvent, SessionCreate, SessionEndRequest
+from app.schemas.base import GenericResponse
+from app.schemas.session import (
+    InjectEvent,
+    SessionCreate,
+    SessionEndRequest,
+    SessionList,
+    SessionOut,
+)
 from app.services.auth_service import verify_token
 
 logger = logging.getLogger(__name__)
@@ -72,7 +79,16 @@ def _session_to_dict(s: TrainingSession) -> dict:
     }
 
 
-@router.post("", response_model=dict, status_code=201)
+@router.post(
+    "",
+    response_model=GenericResponse[SessionOut],
+    status_code=201,
+    summary="Initialize Training Session",
+    description=(
+        "Create a new live training session instance for a trainee based "
+        "on a scenario template."
+    ),
+)
 async def create_session(
     body: SessionCreate,
     current_user: User = Depends(get_current_user),
@@ -99,13 +115,23 @@ async def create_session(
     }
 
 
-@router.get("", response_model=dict)
+@router.get(
+    "",
+    response_model=GenericResponse[SessionList],
+    summary="List Training Sessions",
+    description=(
+        "Retrieve a paginated history of training sessions. "
+        "Trainees can only see their own sessions."
+    ),
+)
 async def list_sessions(
-    trainee_id: uuid.UUID | None = None,
-    instructor_id: uuid.UUID | None = None,
-    status_filter: str | None = Query(None, alias="status"),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    trainee_id: uuid.UUID | None = Query(None, description="Filter by trainee ID"),
+    instructor_id: uuid.UUID | None = Query(None, description="Filter by instructor ID"),
+    status_filter: str | None = Query(
+        None, alias="status", description="Filter by session status (active, completed, paused)"
+    ),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -140,7 +166,12 @@ async def list_sessions(
     }
 
 
-@router.get("/{session_id}", response_model=dict)
+@router.get(
+    "/{session_id}",
+    response_model=GenericResponse[SessionOut],
+    summary="Get Session Details",
+    description="Retrieve full details and state for a specific training session.",
+)
 async def get_session(
     session_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -160,7 +191,12 @@ async def get_session(
     }
 
 
-@router.patch("/{session_id}/pause", response_model=dict)
+@router.patch(
+    "/{session_id}/pause",
+    response_model=GenericResponse[dict],
+    summary="Pause Active Session",
+    description="Suspend a running simulation. Accessible by Instructors and Admins.",
+)
 async def pause_session(
     session_id: uuid.UUID,
     current_user: User = Depends(require_roles("instructor", "evaluator", "admin")),
@@ -184,7 +220,15 @@ async def pause_session(
     }
 
 
-@router.patch("/{session_id}/end", response_model=dict)
+@router.patch(
+    "/{session_id}/end",
+    response_model=GenericResponse[SessionOut],
+    summary="Conclude Training Session",
+    description=(
+        "Finalize a session, recording the end time, instructor notes, "
+        "and final performance score."
+    ),
+)
 async def end_session(
     session_id: uuid.UUID,
     body: SessionEndRequest,
@@ -221,7 +265,15 @@ async def end_session(
     }
 
 
-@router.get("/{session_id}/telemetry", response_model=dict)
+@router.get(
+    "/{session_id}/telemetry",
+    response_model=GenericResponse[dict],
+    summary="Get Session Telemetry",
+    description=(
+        "Retrieve the chronological log of all events and data points "
+        "recorded during the simulation."
+    ),
+)
 async def get_telemetry(
     session_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -242,7 +294,15 @@ async def get_telemetry(
     }
 
 
-@router.get("/{session_id}/replay", response_model=dict)
+@router.get(
+    "/{session_id}/replay",
+    response_model=GenericResponse[dict],
+    summary="Get Replay Data",
+    description=(
+        "Retrieve the data required to reconstruct and playback a "
+        "completed training session."
+    ),
+)
 async def get_replay(
     session_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
@@ -271,7 +331,15 @@ async def get_replay(
     }
 
 
-@router.post("/{session_id}/inject", response_model=dict)
+@router.post(
+    "/{session_id}/inject",
+    response_model=GenericResponse[dict],
+    summary="Inject Scenario Event",
+    description=(
+        "Instructors can manually trigger events (failures, enemy movements, etc.) "
+        "into a live session."
+    ),
+)
 async def inject_event(
     session_id: uuid.UUID,
     body: InjectEvent,

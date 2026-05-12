@@ -11,6 +11,7 @@ from app.database import engine, get_db
 from app.dependencies import get_current_user, require_roles
 from app.models.session import Session as TrainingSession
 from app.models.user import User
+from app.schemas.base import GenericResponse
 from app.schemas.system import BackupRequest, ModelLoadRequest
 from app.services import ai_service
 
@@ -72,7 +73,15 @@ async def _check_qdrant() -> dict:
         return {"name": "Qdrant", "status": "offline", "details": str(exc)}
 
 
-@router.get("/health", response_model=dict)
+@router.get(
+    "/health",
+    response_model=GenericResponse[dict],
+    summary="System Health Matrix",
+    description=(
+        "Comprehensive health check for all core infrastructure services "
+        "including PostgreSQL, Redis, Ollama, and Qdrant."
+    ),
+)
 async def health_check(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -104,7 +113,15 @@ async def health_check(
     }
 
 
-@router.get("/audit-log", response_model=dict)
+@router.get(
+    "/audit-log",
+    response_model=GenericResponse[dict],
+    summary="Infrastructure Audit Log",
+    description=(
+        "Retrieve the complete system audit trail. Includes AI interaction logs "
+        "and administrative actions. Access restricted to Admin."
+    ),
+)
 async def get_audit_log(
     page: int = 1,
     page_size: int = 50,
@@ -142,7 +159,15 @@ async def get_audit_log(
     }
 
 
-@router.post("/model/load", response_model=dict)
+@router.post(
+    "/model/load",
+    response_model=GenericResponse[dict],
+    summary="Load Sovereign Model",
+    description=(
+        "Instruct the onboard Ollama engine to load or pull a new LLM model. "
+        "Requires Maintainer or Admin privileges."
+    ),
+)
 async def load_model(
     body: ModelLoadRequest,
     current_user: User = Depends(require_roles("maintainer", "admin")),
@@ -177,7 +202,12 @@ async def load_model(
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
-@router.get("/model/status", response_model=dict)
+@router.get(
+    "/model/status",
+    response_model=GenericResponse[dict],
+    summary="LLM Registry Status",
+    description="List all available and loaded models within the sovereign AI engine.",
+)
 async def model_status(
     current_user: User = Depends(get_current_user),
 ):
@@ -202,7 +232,15 @@ async def model_status(
     }
 
 
-@router.post("/backup", response_model=dict)
+@router.post(
+    "/backup",
+    response_model=GenericResponse[dict],
+    summary="Trigger System Backup",
+    description=(
+        "Manually initiate a full system backup, including database states "
+        "and doctrine files. Requires Admin or Maintainer privileges."
+    ),
+)
 async def trigger_backup(
     body: BackupRequest,
     current_user: User = Depends(require_roles("admin", "maintainer")),
@@ -229,7 +267,15 @@ async def trigger_backup(
     }
 
 
-@router.get("/metrics", response_model=dict)
+@router.get(
+    "/metrics",
+    response_model=GenericResponse[dict],
+    summary="Live System Metrics",
+    description=(
+        "Retrieve real-time hardware and application performance metrics "
+        "(CPU, Memory, Uptime, Active Connections)."
+    ),
+)
 async def system_metrics(
     current_user: User = Depends(require_roles("admin", "maintainer", "fleet")),
     db: Session = Depends(get_db),
