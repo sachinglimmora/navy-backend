@@ -1,15 +1,15 @@
-from pydantic import BaseModel
-from typing import Optional, List
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel
 
 
 class DoctrineCreate(BaseModel):
     title: str
     domain: str
     version: str
-    content_text: Optional[str] = None
-    file_ref: Optional[str] = None
+    content_text: str | None = None
+    file_ref: str | None = None
 
 
 class DoctrineOut(BaseModel):
@@ -17,10 +17,10 @@ class DoctrineOut(BaseModel):
     title: str
     domain: str
     version: str
-    content_hash: Optional[str] = None
-    file_ref: Optional[str] = None
-    embedded_at: Optional[datetime] = None
-    approved_by: Optional[UUID] = None
+    content_hash: str | None = None
+    file_ref: str | None = None
+    embedded_at: datetime | None = None
+    approved_by: UUID | None = None
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -34,9 +34,9 @@ class DoctrineGrounding(BaseModel):
     domain: str
     version: str
     usage_count: int
-    last_used: Optional[datetime] = None
+    last_used: datetime | None = None
 
 
 class RebuildIndexRequest(BaseModel):
-    domain: Optional[str] = None  # None means rebuild all
+    domain: str | None = None  # None means rebuild all
     force: bool = False

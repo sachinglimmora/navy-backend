@@ -1,15 +1,16 @@
-import uuid
 import hashlib
-from datetime import datetime, timezone
+import uuid
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.user import User
-from app.models.doctrine import DoctrineDocument
-from app.models.ai_audit import AIAudit
-from app.schemas.doctrine import DoctrineCreate, RebuildIndexRequest
 from app.dependencies import get_current_user, require_roles
+from app.models.ai_audit import AIAudit
+from app.models.doctrine import DoctrineDocument
+from app.models.user import User
+from app.schemas.doctrine import DoctrineCreate, RebuildIndexRequest
 from app.services import ai_service
 
 router = APIRouter(prefix="/doctrine", tags=["Doctrine"])
@@ -41,7 +42,7 @@ async def list_doctrine(
     """List doctrine documents."""
     query = db.query(DoctrineDocument)
     if active_only:
-        query = query.filter(DoctrineDocument.is_active == True)
+        query = query.filter(DoctrineDocument.is_active)
     if domain:
         query = query.filter(DoctrineDocument.domain == domain)
     docs = query.order_by(DoctrineDocument.created_at.desc()).all()
@@ -72,8 +73,8 @@ async def add_doctrine(
         file_ref=body.file_ref,
         content_text=body.content_text,
         is_active=True,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
     db.add(doc)
     db.commit()
@@ -98,7 +99,7 @@ async def approve_doctrine(
         raise HTTPException(status_code=404, detail="Doctrine document not found")
 
     doc.approved_by = current_user.id
-    doc.updated_at = datetime.now(timezone.utc)
+    doc.updated_at = datetime.now(UTC)
     db.commit()
 
     return {
@@ -118,7 +119,7 @@ async def rebuild_doctrine_index(
     Trigger re-embedding of doctrine documents into the Qdrant vector store.
     Doctrine role required.
     """
-    query = db.query(DoctrineDocument).filter(DoctrineDocument.is_active == True)
+    query = db.query(DoctrineDocument).filter(DoctrineDocument.is_active)
     if body.domain:
         query = query.filter(DoctrineDocument.domain == body.domain)
 
@@ -134,7 +135,7 @@ async def rebuild_doctrine_index(
         if embedding:
             # In production this would upsert into Qdrant
             # For now we mark the embedded_at timestamp
-            doc.embedded_at = datetime.now(timezone.utc)
+            doc.embedded_at = datetime.now(UTC)
             db.commit()
             embedded_count += 1
         else:
@@ -162,10 +163,9 @@ async def get_ai_groundings(
     derived from the AI audit log's doctrine_version_used field.
     """
     # Get unique doctrine versions used in AI interactions
-    from sqlalchemy import distinct
     versions_used = (
         db.query(AIAudit.doctrine_version_used)
-        .filter(AIAudit.doctrine_version_used != None)
+        .filter(AIAudit.doctrine_version_used is not None)
         .distinct()
         .all()
     )
@@ -176,30 +176,28 @@ async def get_ai_groundings(
     for version in version_list:
         docs = (
             db.query(DoctrineDocument)
-            .filter(DoctrineDocument.version == version, DoctrineDocument.is_active == True)
+            .filter(DoctrineDocument.version == version, DoctrineDocument.is_active)
             .all()
         )
         for doc in docs:
             # Count uses
-            use_count = (
-                db.query(AIAudit)
-                .filter(AIAudit.doctrine_version_used == version)
-                .count()
-            )
+            use_count = db.query(AIAudit).filter(AIAudit.doctrine_version_used == version).count()
             latest_use = (
                 db.query(AIAudit)
                 .filter(AIAudit.doctrine_version_used == version)
                 .order_by(AIAudit.timestamp.desc())
                 .first()
             )
-            grounding_docs.append({
-                "document_id": str(doc.id),
-                "title": doc.title,
-                "domain": doc.domain,
-                "version": doc.version,
-                "usage_count": use_count,
-                "last_used": latest_use.timestamp.isoformat() if latest_use else None,
-            })
+            grounding_docs.append(
+                {
+                    "document_id": str(doc.id),
+                    "title": doc.title,
+                    "domain": doc.domain,
+                    "version": doc.version,
+                    "usage_count": use_count,
+                    "last_used": latest_use.timestamp.isoformat() if latest_use else None,
+                }
+            )
 
     return {
         "success": True,

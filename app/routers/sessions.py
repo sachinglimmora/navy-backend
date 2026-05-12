@@ -1,26 +1,27 @@
-import uuid
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
+import uuid
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.user import User
-from app.models.session import Session as TrainingSession
-from app.schemas.session import SessionCreate, InjectEvent, SessionEndRequest
 from app.dependencies import get_current_user, require_roles
+from app.models.session import Session as TrainingSession
+from app.models.user import User
+from app.schemas.session import InjectEvent, SessionCreate, SessionEndRequest
 from app.services.auth_service import verify_token
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
 
+
 # In-memory WebSocket connection manager per session
 class SessionConnectionManager:
     def __init__(self):
-        self.active: Dict[str, list[WebSocket]] = {}
+        self.active: dict[str, list[WebSocket]] = {}
 
     async def connect(self, session_id: str, websocket: WebSocket):
         await websocket.accept()
@@ -84,9 +85,9 @@ async def create_session(
         trainee_id=body.trainee_id,
         instructor_id=body.instructor_id,
         status="active",
-        started_at=datetime.now(timezone.utc),
+        started_at=datetime.now(UTC),
         telemetry_log=[],
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     db.add(session)
     db.commit()
@@ -100,9 +101,9 @@ async def create_session(
 
 @router.get("", response_model=dict)
 async def list_sessions(
-    trainee_id: Optional[uuid.UUID] = None,
-    instructor_id: Optional[uuid.UUID] = None,
-    status_filter: Optional[str] = Query(None, alias="status"),
+    trainee_id: uuid.UUID | None = None,
+    instructor_id: uuid.UUID | None = None,
+    status_filter: str | None = Query(None, alias="status"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_user),
@@ -175,9 +176,7 @@ async def pause_session(
     session.status = "paused"
     db.commit()
 
-    await manager.broadcast(
-        str(session_id), {"type": "status_change", "status": "paused"}
-    )
+    await manager.broadcast(str(session_id), {"type": "status_change", "status": "paused"})
     return {
         "success": True,
         "message": "Session paused",
@@ -200,7 +199,7 @@ async def end_session(
         raise HTTPException(status_code=400, detail="Session is already ended")
 
     session.status = "completed"
-    session.ended_at = datetime.now(timezone.utc)
+    session.ended_at = datetime.now(UTC)
     if body.instructor_notes:
         session.instructor_notes = body.instructor_notes
     if body.final_score:
@@ -214,9 +213,7 @@ async def end_session(
 
     db.commit()
 
-    await manager.broadcast(
-        str(session_id), {"type": "status_change", "status": "completed"}
-    )
+    await manager.broadcast(str(session_id), {"type": "status_change", "status": "completed"})
     return {
         "success": True,
         "message": "Session ended",
@@ -289,7 +286,7 @@ async def inject_event(
         raise HTTPException(status_code=400, detail="Session must be active to inject events")
 
     event = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "event_type": body.event_type,
         "payload": body.payload,
         "injected_by": str(current_user.id),
@@ -356,7 +353,7 @@ async def session_websocket(
             )
             if session and session.status == "active":
                 entry = {
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "event_type": event.get("type", "generic"),
                     "data": event,
                 }

@@ -1,13 +1,14 @@
-from pydantic import BaseModel
-from typing import Optional, List, Any, Dict
-from uuid import UUID
 from datetime import datetime
+from typing import Any
+from uuid import UUID
+
+from pydantic import BaseModel
 
 
 class DomainScore(BaseModel):
     domain: str
     average_score: float
-    skill_breakdown: Dict[str, float]
+    skill_breakdown: dict[str, float]
     session_count: int
     trend: str  # improving|declining|stable
 
@@ -16,11 +17,11 @@ class TraineeAnalytics(BaseModel):
     user_id: UUID
     name: str
     rank: str
-    domains: List[DomainScore]
+    domains: list[DomainScore]
     overall_score: float
     sessions_completed: int
     certifications_earned: int
-    last_activity: Optional[datetime] = None
+    last_activity: datetime | None = None
 
 
 class CohortMemberSummary(BaseModel):
@@ -39,14 +40,14 @@ class CohortAnalytics(BaseModel):
     average_score: float
     top_domain: str
     weakest_domain: str
-    members: List[CohortMemberSummary]
+    members: list[CohortMemberSummary]
 
 
 class FleetSummary(BaseModel):
     total_trainees: int
     total_sessions: int
     average_fleet_score: float
-    domain_performance: Dict[str, float]
+    domain_performance: dict[str, float]
     certifications_this_month: int
     active_sessions: int
 
@@ -59,21 +60,21 @@ class PredictiveTrend(BaseModel):
     predicted_score_90d: float
     trajectory: str  # positive|negative|flat
     confidence: float
-    recommendations: List[str]
+    recommendations: list[str]
 
 
 class DomainWeaknessMap(BaseModel):
     domain: str
     average_score: float
-    weakest_skills: List[Dict[str, Any]]
+    weakest_skills: list[dict[str, Any]]
     recommended_focus: str
     trainee_count: int
 
 
 class ReportRequest(BaseModel):
     report_type: str  # trainee|cohort|fleet|domain
-    target_id: Optional[UUID] = None
-    domain: Optional[str] = None
-    date_from: Optional[datetime] = None
-    date_to: Optional[datetime] = None
+    target_id: UUID | None = None
+    domain: str | None = None
+    date_from: datetime | None = None
+    date_to: datetime | None = None
     include_recommendations: bool = True

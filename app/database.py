@@ -1,9 +1,10 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
-from sqlalchemy.pool import NullPool
-from app.config import settings
-from typing import Generator
+from collections.abc import Generator
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.pool import NullPool
+
+from app.config import settings
 
 # SQLAlchemy 2.0 synchronous engine (psycopg2)
 engine = create_engine(
@@ -36,13 +37,14 @@ def create_all_tables() -> None:
     """Create all tables that are registered on the Base metadata."""
     # Import models to ensure they are registered before create_all
     from app.models import (  # noqa: F401
-        user,
-        scenario,
-        session,
-        competency,
-        certification,
         ai_audit,
+        certification,
+        competency,
         doctrine,
         notification,
+        scenario,
+        session,
+        user,
     )
+
     Base.metadata.create_all(bind=engine)

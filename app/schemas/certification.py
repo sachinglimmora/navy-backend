@@ -1,15 +1,15 @@
-from pydantic import BaseModel
-from typing import Optional, List
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel
 
 
 class CertificationIssue(BaseModel):
     user_id: UUID
     cert_type: str
     domain: str
-    valid_until: Optional[datetime] = None
-    evidence_session_ids: List[str] = []
+    valid_until: datetime | None = None
+    evidence_session_ids: list[str] = []
 
 
 class CertificationOut(BaseModel):
@@ -19,11 +19,11 @@ class CertificationOut(BaseModel):
     domain: str
     issued_by: UUID
     issued_at: datetime
-    valid_until: Optional[datetime] = None
+    valid_until: datetime | None = None
     is_revoked: bool
-    revoked_at: Optional[datetime] = None
-    revoked_by: Optional[UUID] = None
-    evidence_session_ids: List[str]
+    revoked_at: datetime | None = None
+    revoked_by: UUID | None = None
+    evidence_session_ids: list[str]
     certificate_number: str
 
     model_config = {"from_attributes": True}
@@ -41,6 +41,6 @@ class CertificationVerify(BaseModel):
     domain: str
     cert_type: str
     issued_at: datetime
-    valid_until: Optional[datetime] = None
+    valid_until: datetime | None = None
     is_revoked: bool
-    revoked_reason: Optional[str] = None
+    revoked_reason: str | None = None

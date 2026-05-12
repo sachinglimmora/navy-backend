@@ -1,15 +1,16 @@
-import uuid
-import random
+import secrets
 import string
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query
+import uuid
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.user import User
-from app.models.certification import Certification
-from app.schemas.certification import CertificationIssue, CertificationRevoke
 from app.dependencies import get_current_user, require_roles
+from app.models.certification import Certification
+from app.models.user import User
+from app.schemas.certification import CertificationIssue, CertificationRevoke
 
 router = APIRouter(prefix="/certifications", tags=["Certifications"])
 
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/certifications", tags=["Certifications"])
 def _generate_cert_number() -> str:
     """Generate a unique certificate number like AEGIS-2026-XXXX."""
     year = datetime.now().year
-    suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    suffix = "".join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
     return f"AEGIS-{year}-{suffix}"
 
 
@@ -46,7 +47,10 @@ async def list_trainee_certifications(
 ):
     """List all certifications for a trainee."""
     if current_user.id != user_id and current_user.role not in (
-        "instructor", "evaluator", "fleet", "admin"
+        "instructor",
+        "evaluator",
+        "fleet",
+        "admin",
     ):
         raise HTTPException(status_code=403, detail="Access denied")
 
@@ -66,7 +70,7 @@ async def issue_certification(
 ):
     """Issue a new certification to a trainee. Evaluator and above."""
     # Verify the trainee exists
-    trainee = db.query(User).filter(User.id == body.user_id, User.is_active == True).first()
+    trainee = db.query(User).filter(User.id == body.user_id, User.is_active).first()
     if not trainee:
         raise HTTPException(status_code=404, detail="Trainee not found")
 
@@ -76,7 +80,7 @@ async def issue_certification(
         cert_type=body.cert_type,
         domain=body.domain,
         issued_by=current_user.id,
-        issued_at=datetime.now(timezone.utc),
+        issued_at=datetime.now(UTC),
         valid_until=body.valid_until,
         is_revoked=False,
         evidence_session_ids=body.evidence_session_ids,
@@ -102,14 +106,12 @@ async def get_pending_certifications(
     Return candidates eligible for certification review.
     Trainees with completed sessions but no certification in the domain.
     """
-    from app.models.session import Session as TrainingSession
     from app.models.scenario import Scenario
+    from app.models.session import Session as TrainingSession
 
     # Get all trainees with completed sessions
     completed_sessions = (
-        db.query(TrainingSession)
-        .filter(TrainingSession.status == "completed")
-        .all()
+        db.query(TrainingSession).filter(TrainingSession.status == "completed").all()
     )
 
     # Find trainees without a certification in the session's scenario domain
@@ -130,21 +132,23 @@ async def get_pending_certifications(
             .filter(
                 Certification.user_id == trainee_id,
                 Certification.domain == scenario.domain,
-                Certification.is_revoked == False,
+                not Certification.is_revoked,
             )
             .first()
         )
         if not has_cert:
             trainee = db.query(User).filter(User.id == trainee_id).first()
             if trainee:
-                pending.append({
-                    "trainee_id": str(trainee_id),
-                    "trainee_name": trainee.name,
-                    "rank": trainee.rank,
-                    "domain": scenario.domain,
-                    "completed_session_id": str(session.id),
-                    "score": session.score,
-                })
+                pending.append(
+                    {
+                        "trainee_id": str(trainee_id),
+                        "trainee_name": trainee.name,
+                        "rank": trainee.rank,
+                        "domain": scenario.domain,
+                        "completed_session_id": str(session.id),
+                        "score": session.score,
+                    }
+                )
 
     return {
         "success": True,
@@ -165,9 +169,8 @@ async def verify_certification(
         raise HTTPException(status_code=404, detail="Certification not found")
 
     trainee = db.query(User).filter(User.id == cert.user_id).first()
-    is_valid = (
-        not cert.is_revoked
-        and (cert.valid_until is None or cert.valid_until > datetime.now(timezone.utc))
+    is_valid = not cert.is_revoked and (
+        cert.valid_until is None or cert.valid_until > datetime.now(UTC)
     )
 
     return {
@@ -203,7 +206,7 @@ async def revoke_certification(
         raise HTTPException(status_code=400, detail="Certification already revoked")
 
     cert.is_revoked = True
-    cert.revoked_at = datetime.now(timezone.utc)
+    cert.revoked_at = datetime.now(UTC)
     cert.revoked_by = current_user.id
     db.commit()
 

@@ -1,9 +1,11 @@
-import uuid
 import logging
-from typing import Callable
+import uuid
+from collections.abc import Callable
+
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.models.user import User
 from app.services.auth_service import verify_token
@@ -65,9 +67,9 @@ async def get_current_user(
     try:
         user_id = uuid.UUID(user_id_str)
     except ValueError:
-        raise credentials_exception
+        raise credentials_exception from None
 
-    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    user = db.query(User).filter(User.id == user_id, User.is_active).first()
     if user is None:
         raise credentials_exception
 

@@ -1,25 +1,23 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
+from app.dependencies import blacklist_token, get_current_user, security_scheme
 from app.models.user import User
 from app.schemas.auth import (
     LoginRequest,
-    LoginResponse,
     RefreshRequest,
-    AccessTokenResponse,
-    UserProfile,
 )
 from app.services.auth_service import (
-    verify_password,
     create_access_token,
     create_refresh_token,
+    verify_password,
     verify_token,
 )
-from app.dependencies import get_current_user, blacklist_token, security_scheme
-from app.config import settings
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -30,11 +28,7 @@ async def login(body: LoginRequest, db: Session = Depends(get_db)):
     Authenticate a user with service_number + password.
     Returns access_token, refresh_token, and full user profile.
     """
-    user = (
-        db.query(User)
-        .filter(User.service_number == body.service_number, User.is_active == True)
-        .first()
-    )
+    user = db.query(User).filter(User.service_number == body.service_number, User.is_active).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -42,7 +36,7 @@ async def login(body: LoginRequest, db: Session = Depends(get_db)):
         )
 
     # Update last_login timestamp
-    user.last_login = datetime.now(timezone.utc)
+    user.last_login = datetime.now(UTC)
     db.commit()
 
     token_data = {"sub": str(user.id), "role": user.role}

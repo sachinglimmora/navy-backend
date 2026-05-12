@@ -1,16 +1,16 @@
 import uuid
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
 from app.database import get_db
-from app.models.user import User, Cohort
-from app.models.competency import CompetencyRecord
-from app.models.certification import Certification
-from app.models.session import Session as TrainingSession
-from app.schemas.analytics import ReportRequest
 from app.dependencies import get_current_user, require_roles
+from app.models.certification import Certification
+from app.models.competency import CompetencyRecord
+from app.models.session import Session as TrainingSession
+from app.models.user import Cohort, User
+from app.schemas.analytics import ReportRequest
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
@@ -23,7 +23,10 @@ async def trainee_analytics(
 ):
     """Competency records for a user, grouped by domain."""
     if current_user.id != user_id and current_user.role not in (
-        "instructor", "evaluator", "fleet", "admin"
+        "instructor",
+        "evaluator",
+        "fleet",
+        "admin",
     ):
         raise HTTPException(status_code=403, detail="Access denied")
 
@@ -52,36 +55,34 @@ async def trainee_analytics(
         # Simple trend: compare first half to second half
         scores = data["scores"]
         if len(scores) >= 4:
-            first_half = sum(scores[:len(scores)//2]) / (len(scores)//2)
-            second_half = sum(scores[len(scores)//2:]) / (len(scores) - len(scores)//2)
-            trend = "improving" if second_half > first_half else (
-                "declining" if second_half < first_half else "stable"
+            first_half = sum(scores[: len(scores) // 2]) / (len(scores) // 2)
+            second_half = sum(scores[len(scores) // 2 :]) / (len(scores) - len(scores) // 2)
+            trend = (
+                "improving"
+                if second_half > first_half
+                else ("declining" if second_half < first_half else "stable")
             )
         else:
             trend = "stable"
-        domains.append({
-            "domain": domain,
-            "average_score": round(avg, 2),
-            "skill_breakdown": data["skills"],
-            "session_count": len(data["scores"]),
-            "trend": trend,
-            "last_assessed": data["last_assessed"].isoformat(),
-        })
+        domains.append(
+            {
+                "domain": domain,
+                "average_score": round(avg, 2),
+                "skill_breakdown": data["skills"],
+                "session_count": len(data["scores"]),
+                "trend": trend,
+                "last_assessed": data["last_assessed"].isoformat(),
+            }
+        )
 
-    sessions_count = (
-        db.query(TrainingSession)
-        .filter(TrainingSession.trainee_id == user_id)
-        .count()
-    )
+    sessions_count = db.query(TrainingSession).filter(TrainingSession.trainee_id == user_id).count()
     certs_count = (
         db.query(Certification)
-        .filter(Certification.user_id == user_id, Certification.is_revoked == False)
+        .filter(Certification.user_id == user_id, not Certification.is_revoked)
         .count()
     )
 
-    overall = (
-        sum(d["average_score"] for d in domains) / len(domains) if domains else 0.0
-    )
+    overall = sum(d["average_score"] for d in domains) / len(domains) if domains else 0.0
 
     return {
         "success": True,
@@ -109,34 +110,30 @@ async def cohort_analytics(
     if not cohort:
         raise HTTPException(status_code=404, detail="Cohort not found")
 
-    members = db.query(User).filter(User.cohort_id == cohort_id, User.is_active == True).all()
+    members = db.query(User).filter(User.cohort_id == cohort_id, User.is_active).all()
 
     member_summaries = []
     all_scores = []
     for member in members:
-        records = (
-            db.query(CompetencyRecord)
-            .filter(CompetencyRecord.user_id == member.id)
-            .all()
-        )
+        records = db.query(CompetencyRecord).filter(CompetencyRecord.user_id == member.id).all()
         if records:
             avg = sum(r.score for r in records) / len(records)
         else:
             avg = 0.0
         all_scores.append(avg)
         sessions_count = (
-            db.query(TrainingSession)
-            .filter(TrainingSession.trainee_id == member.id)
-            .count()
+            db.query(TrainingSession).filter(TrainingSession.trainee_id == member.id).count()
         )
-        member_summaries.append({
-            "user_id": str(member.id),
-            "name": member.name,
-            "rank": member.rank,
-            "overall_score": round(avg, 2),
-            "sessions_completed": sessions_count,
-            "status": "active",
-        })
+        member_summaries.append(
+            {
+                "user_id": str(member.id),
+                "name": member.name,
+                "rank": member.rank,
+                "overall_score": round(avg, 2),
+                "sessions_completed": sessions_count,
+                "status": "active",
+            }
+        )
 
     cohort_avg = sum(all_scores) / len(all_scores) if all_scores else 0.0
 
@@ -152,9 +149,7 @@ async def cohort_analytics(
             domain_scores[rec.domain] = []
         domain_scores[rec.domain].append(rec.score)
 
-    domain_avgs = {
-        d: sum(scores) / len(scores) for d, scores in domain_scores.items()
-    }
+    domain_avgs = {d: sum(scores) / len(scores) for d, scores in domain_scores.items()}
     top_domain = max(domain_avgs, key=domain_avgs.get) if domain_avgs else "N/A"
     weakest_domain = min(domain_avgs, key=domain_avgs.get) if domain_avgs else "N/A"
 
@@ -179,11 +174,9 @@ async def fleet_analytics(
     db: Session = Depends(get_db),
 ):
     """Fleet-wide performance summary."""
-    total_trainees = db.query(User).filter(User.role == "trainee", User.is_active == True).count()
+    total_trainees = db.query(User).filter(User.role == "trainee", User.is_active).count()
     total_sessions = db.query(TrainingSession).count()
-    active_sessions = (
-        db.query(TrainingSession).filter(TrainingSession.status == "active").count()
-    )
+    active_sessions = db.query(TrainingSession).filter(TrainingSession.status == "active").count()
 
     all_records = db.query(CompetencyRecord).all()
     domain_scores: dict = {}
@@ -192,23 +185,17 @@ async def fleet_analytics(
             domain_scores[rec.domain] = []
         domain_scores[rec.domain].append(rec.score)
 
-    domain_performance = {
-        d: round(sum(s) / len(s), 2) for d, s in domain_scores.items()
-    }
+    domain_performance = {d: round(sum(s) / len(s), 2) for d, s in domain_scores.items()}
 
     fleet_avg = (
-        sum(domain_performance.values()) / len(domain_performance)
-        if domain_performance
-        else 0.0
+        sum(domain_performance.values()) / len(domain_performance) if domain_performance else 0.0
     )
 
     # Certs issued this month
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     certs_this_month = (
-        db.query(Certification)
-        .filter(Certification.issued_at >= month_start)
-        .count()
+        db.query(Certification).filter(Certification.issued_at >= month_start).count()
     )
 
     return {
@@ -273,11 +260,7 @@ async def predictive_analytics(
             predicted_90 = current
             avg_delta = 0.0
 
-        trajectory = (
-            "positive" if avg_delta > 0.01
-            else "negative" if avg_delta < -0.01
-            else "flat"
-        )
+        trajectory = "positive" if avg_delta > 0.01 else "negative" if avg_delta < -0.01 else "flat"
 
         recommendations = []
         if current < 0.6:
@@ -288,15 +271,17 @@ async def predictive_analytics(
         else:
             recommendations.append("Maintain performance with periodic exercises")
 
-        predictions.append({
-            "domain": domain,
-            "current_score": round(current, 2),
-            "predicted_score_30d": round(predicted_30, 2),
-            "predicted_score_90d": round(predicted_90, 2),
-            "trajectory": trajectory,
-            "confidence": 0.65,
-            "recommendations": recommendations,
-        })
+        predictions.append(
+            {
+                "domain": domain,
+                "current_score": round(current, 2),
+                "predicted_score_30d": round(predicted_30, 2),
+                "predicted_score_90d": round(predicted_90, 2),
+                "trajectory": trajectory,
+                "confidence": 0.65,
+                "recommendations": recommendations,
+            }
+        )
 
     return {
         "success": True,
@@ -315,17 +300,18 @@ async def domain_weakness_map(
     db: Session = Depends(get_db),
 ):
     """Domain-wide weakness map showing skill averages."""
-    records = (
-        db.query(CompetencyRecord)
-        .filter(CompetencyRecord.domain == domain)
-        .all()
-    )
+    records = db.query(CompetencyRecord).filter(CompetencyRecord.domain == domain).all()
 
     if not records:
         return {
             "success": True,
             "message": "No data for domain",
-            "data": {"domain": domain, "average_score": 0.0, "weakest_skills": [], "trainee_count": 0},
+            "data": {
+                "domain": domain,
+                "average_score": 0.0,
+                "weakest_skills": [],
+                "trainee_count": 0,
+            },
         }
 
     skill_scores: dict = {}
@@ -334,9 +320,7 @@ async def domain_weakness_map(
             skill_scores[rec.skill] = []
         skill_scores[rec.skill].append(rec.score)
 
-    skill_avgs = {
-        skill: sum(scores) / len(scores) for skill, scores in skill_scores.items()
-    }
+    skill_avgs = {skill: sum(scores) / len(scores) for skill, scores in skill_scores.items()}
     sorted_skills = sorted(skill_avgs.items(), key=lambda x: x[1])
     weakest = [{"skill": s, "average_score": round(sc, 2)} for s, sc in sorted_skills[:5]]
 
@@ -365,7 +349,7 @@ async def generate_report(
     """Generate a JSON analytics report."""
     report = {
         "report_type": body.report_type,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "generated_by": str(current_user.id),
         "parameters": {
             "target_id": str(body.target_id) if body.target_id else None,
@@ -376,20 +360,14 @@ async def generate_report(
     }
 
     if body.report_type == "fleet":
-        total_trainees = (
-            db.query(User).filter(User.role == "trainee", User.is_active == True).count()
-        )
+        total_trainees = db.query(User).filter(User.role == "trainee", User.is_active).count()
         total_sessions = db.query(TrainingSession).count()
         report["summary"] = {
             "total_trainees": total_trainees,
             "total_sessions": total_sessions,
         }
     elif body.report_type == "domain" and body.domain:
-        records = (
-            db.query(CompetencyRecord)
-            .filter(CompetencyRecord.domain == body.domain)
-            .all()
-        )
+        records = db.query(CompetencyRecord).filter(CompetencyRecord.domain == body.domain).all()
         report["summary"] = {
             "domain": body.domain,
             "record_count": len(records),

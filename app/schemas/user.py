@@ -1,7 +1,7 @@
-from pydantic import BaseModel
-from typing import Optional, List
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel
 
 
 class UserCreate(BaseModel):
@@ -11,18 +11,18 @@ class UserCreate(BaseModel):
     unit: str
     role: str
     password: str
-    cohort_id: Optional[UUID] = None
+    cohort_id: UUID | None = None
     classification_clearance: str = "RESTRICTED"
 
 
 class UserUpdate(BaseModel):
-    name: Optional[str] = None
-    rank: Optional[str] = None
-    unit: Optional[str] = None
-    role: Optional[str] = None
-    cohort_id: Optional[UUID] = None
-    classification_clearance: Optional[str] = None
-    is_active: Optional[bool] = None
+    name: str | None = None
+    rank: str | None = None
+    unit: str | None = None
+    role: str | None = None
+    cohort_id: UUID | None = None
+    classification_clearance: str | None = None
+    is_active: bool | None = None
 
 
 class UserOut(BaseModel):
@@ -32,10 +32,10 @@ class UserOut(BaseModel):
     rank: str
     unit: str
     role: str
-    cohort_id: Optional[UUID] = None
+    cohort_id: UUID | None = None
     classification_clearance: str
     is_active: bool
-    last_login: Optional[datetime] = None
+    last_login: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -43,7 +43,7 @@ class UserOut(BaseModel):
 
 
 class UserList(BaseModel):
-    items: List[UserOut]
+    items: list[UserOut]
     total: int
     page: int
     page_size: int
@@ -53,11 +53,11 @@ class CompetencySummary(BaseModel):
     domain: str
     average_score: float
     skill_count: int
-    last_assessed: Optional[datetime] = None
+    last_assessed: datetime | None = None
 
 
 class UserAnalytics(BaseModel):
     user_id: UUID
-    competencies: List[CompetencySummary]
+    competencies: list[CompetencySummary]
     total_sessions: int
     certifications_count: int

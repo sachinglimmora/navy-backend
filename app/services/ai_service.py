@@ -1,6 +1,8 @@
-import httpx
 import logging
-from typing import List, Optional, Dict, Any
+from typing import Any
+
+import httpx
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -8,7 +10,7 @@ logger = logging.getLogger(__name__)
 OLLAMA_TIMEOUT = httpx.Timeout(60.0, connect=10.0)
 
 
-async def chat(messages: List[Dict[str, str]], model: Optional[str] = None) -> str:
+async def chat(messages: list[dict[str, str]], model: str | None = None) -> str:
     """
     Send a chat completion request to Ollama.
     Returns the assistant response string.
@@ -49,7 +51,7 @@ async def chat(messages: List[Dict[str, str]], model: Optional[str] = None) -> s
         )
 
 
-async def generate(prompt: str, model: Optional[str] = None) -> str:
+async def generate(prompt: str, model: str | None = None) -> str:
     """
     Single-turn text generation via Ollama /api/generate.
     Returns the generated text string.
@@ -72,8 +74,7 @@ async def generate(prompt: str, model: Optional[str] = None) -> str:
     except httpx.ConnectError:
         logger.warning("Ollama unavailable for generate — returning fallback")
         return (
-            "[AI OFFLINE] Generation unavailable. "
-            "Ensure Ollama is running and the model is loaded."
+            "[AI OFFLINE] Generation unavailable. Ensure Ollama is running and the model is loaded."
         )
     except httpx.TimeoutException:
         logger.warning("Ollama generate timed out")
@@ -83,7 +84,7 @@ async def generate(prompt: str, model: Optional[str] = None) -> str:
         return f"[AI ERROR] {str(exc)}"
 
 
-async def embed(text: str, model: Optional[str] = None) -> List[float]:
+async def embed(text: str, model: str | None = None) -> list[float]:
     """
     Generate a vector embedding for the given text via Ollama /api/embeddings.
     Returns a list of floats (embedding vector).
@@ -111,7 +112,7 @@ async def embed(text: str, model: Optional[str] = None) -> List[float]:
         return []
 
 
-async def check_ollama_status() -> Dict[str, Any]:
+async def check_ollama_status() -> dict[str, Any]:
     """Check if Ollama is running and return model info."""
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(5.0)) as client:
@@ -125,8 +126,8 @@ async def check_ollama_status() -> Dict[str, Any]:
                     "models": models,
                     "base_url": settings.OLLAMA_BASE_URL,
                 }
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.error("Error checking Ollama status: %s", exc)
     return {
         "available": False,
         "status": "offline",

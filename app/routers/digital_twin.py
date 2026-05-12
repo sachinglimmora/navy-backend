@@ -1,14 +1,12 @@
-import uuid
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Dict
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
-from sqlalchemy.orm import Session
+import uuid
+from datetime import UTC, datetime
 
-from app.database import get_db
-from app.models.user import User
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+
 from app.dependencies import get_current_user
+from app.models.user import User
 from app.services.auth_service import verify_token
 
 logger = logging.getLogger(__name__)
@@ -49,10 +47,11 @@ SHIP_MANIFEST = [
     },
 ]
 
+
 # Twin state connection manager for WebSocket broadcasts
 class TwinConnectionManager:
     def __init__(self):
-        self.active: Dict[str, list[WebSocket]] = {}
+        self.active: dict[str, list[WebSocket]] = {}
 
     async def connect(self, ship_id: str, ws: WebSocket):
         await ws.accept()
@@ -84,7 +83,7 @@ def _generate_ship_state(ship: dict) -> dict:
     return {
         "ship_id": ship["ship_id"],
         "name": ship["name"],
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "position": {"lat": 15.3173, "lon": 73.9614},
         "heading_deg": 45,
         "speed_knots": 12.5,
@@ -245,7 +244,7 @@ async def simulate_fault(
             f"Activate backup {system} if available",
             f"Dispatch damage control team to {system} compartment",
         ],
-        "simulated_at": datetime.now(timezone.utc).isoformat(),
+        "simulated_at": datetime.now(UTC).isoformat(),
     }
 
     # Broadcast to connected WebSocket clients

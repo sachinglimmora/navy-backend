@@ -1,8 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.database import SessionLocal, get_db
 from app.main import app
-from app.database import get_db, SessionLocal
 
 
 def _override_get_db():

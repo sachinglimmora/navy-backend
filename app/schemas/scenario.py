@@ -1,7 +1,8 @@
-from pydantic import BaseModel
-from typing import Optional, List, Any, Dict
-from uuid import UUID
 from datetime import datetime
+from typing import Any
+from uuid import UUID
+
+from pydantic import BaseModel
 
 
 class ScenarioCreate(BaseModel):
@@ -9,20 +10,20 @@ class ScenarioCreate(BaseModel):
     domain: str
     difficulty: str
     doctrine_version: str
-    definition: Dict[str, Any] = {}
+    definition: dict[str, Any] = {}
     estimated_duration_minutes: int = 60
-    tags: List[str] = []
+    tags: list[str] = []
 
 
 class ScenarioUpdate(BaseModel):
-    title: Optional[str] = None
-    domain: Optional[str] = None
-    difficulty: Optional[str] = None
-    doctrine_version: Optional[str] = None
-    definition: Optional[Dict[str, Any]] = None
-    estimated_duration_minutes: Optional[int] = None
-    tags: Optional[List[str]] = None
-    is_archived: Optional[bool] = None
+    title: str | None = None
+    domain: str | None = None
+    difficulty: str | None = None
+    doctrine_version: str | None = None
+    definition: dict[str, Any] | None = None
+    estimated_duration_minutes: int | None = None
+    tags: list[str] | None = None
+    is_archived: bool | None = None
 
 
 class ScenarioOut(BaseModel):
@@ -31,10 +32,10 @@ class ScenarioOut(BaseModel):
     domain: str
     difficulty: str
     doctrine_version: str
-    definition: Dict[str, Any]
+    definition: dict[str, Any]
     created_by: UUID
     estimated_duration_minutes: int
-    tags: List[Any]
+    tags: list[Any]
     is_archived: bool
     created_at: datetime
     updated_at: datetime
@@ -43,7 +44,7 @@ class ScenarioOut(BaseModel):
 
 
 class ScenarioList(BaseModel):
-    items: List[ScenarioOut]
+    items: list[ScenarioOut]
     total: int
     page: int
     page_size: int
@@ -59,4 +60,4 @@ class ScenarioGenerateRequest(BaseModel):
 
 class ScenarioStartRequest(BaseModel):
     trainee_id: UUID
-    instructor_id: Optional[UUID] = None
+    instructor_id: UUID | None = None

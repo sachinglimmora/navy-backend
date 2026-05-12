@@ -1,7 +1,7 @@
-from pydantic import BaseModel
-from typing import Optional, List, Any, Dict
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel
 
 
 class ChatMessage(BaseModel):
@@ -10,10 +10,10 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    messages: List[ChatMessage]
-    model: Optional[str] = None
-    session_id: Optional[UUID] = None
-    context: Optional[str] = None
+    messages: list[ChatMessage]
+    model: str | None = None
+    session_id: UUID | None = None
+    context: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -26,14 +26,14 @@ class AssessRequest(BaseModel):
     session_id: UUID
     trainee_action: str
     expected_action: str
-    context: Optional[str] = None
-    doctrine_version: Optional[str] = None
+    context: str | None = None
+    doctrine_version: str | None = None
 
 
 class AssessResponse(BaseModel):
     score: float  # 0.0 - 1.0
     feedback: str
-    competency_tags: List[str]
+    competency_tags: list[str]
     confidence: float
     interaction_id: UUID
 
@@ -42,12 +42,12 @@ class RemediateRequest(BaseModel):
     user_id: UUID
     domain: str
     weakness_description: str
-    session_id: Optional[UUID] = None
+    session_id: UUID | None = None
 
 
 class RemediateResponse(BaseModel):
     plan: str
-    recommended_scenarios: List[str]
+    recommended_scenarios: list[str]
     estimated_improvement_sessions: int
     interaction_id: UUID
 
@@ -55,12 +55,12 @@ class RemediateResponse(BaseModel):
 class HintRequest(BaseModel):
     session_id: UUID
     current_situation: str
-    trainee_query: Optional[str] = None
+    trainee_query: str | None = None
 
 
 class HintResponse(BaseModel):
     hint: str
-    doctrine_reference: Optional[str] = None
+    doctrine_reference: str | None = None
     interaction_id: UUID
 
 
@@ -73,12 +73,12 @@ class AIOverrideRequest(BaseModel):
 class AuditLogEntry(BaseModel):
     id: UUID
     user_id: UUID
-    session_id: Optional[UUID] = None
+    session_id: UUID | None = None
     interaction_type: str
-    doctrine_version_used: Optional[str] = None
-    confidence: Optional[float] = None
-    overridden_by: Optional[UUID] = None
-    override_reason: Optional[str] = None
+    doctrine_version_used: str | None = None
+    confidence: float | None = None
+    overridden_by: UUID | None = None
+    override_reason: str | None = None
     timestamp: datetime
 
     model_config = {"from_attributes": True}

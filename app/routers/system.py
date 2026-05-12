@@ -1,17 +1,18 @@
-import time
 import logging
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import text
+import time
+from datetime import UTC, datetime
 
-from app.database import get_db, engine
-from app.models.user import User
-from app.models.session import Session as TrainingSession
-from app.schemas.system import ModelLoadRequest, BackupRequest
-from app.dependencies import get_current_user, require_roles
-from app.services import ai_service
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.config import settings
+from app.database import engine, get_db
+from app.dependencies import get_current_user, require_roles
+from app.models.session import Session as TrainingSession
+from app.models.user import User
+from app.schemas.system import BackupRequest, ModelLoadRequest
+from app.services import ai_service
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ async def _check_db(db: Session) -> dict:
 async def _check_redis() -> dict:
     try:
         import redis as redis_lib
+
         r = redis_lib.from_url(settings.REDIS_URL, socket_connect_timeout=2)
         start = time.monotonic()
         r.ping()
@@ -42,6 +44,7 @@ async def _check_redis() -> dict:
 
 async def _check_ollama() -> dict:
     import httpx
+
     try:
         start = time.monotonic()
         async with httpx.AsyncClient(timeout=httpx.Timeout(5.0)) as client:
@@ -56,12 +59,11 @@ async def _check_ollama() -> dict:
 
 async def _check_qdrant() -> dict:
     import httpx
+
     try:
         start = time.monotonic()
         async with httpx.AsyncClient(timeout=httpx.Timeout(5.0)) as client:
-            resp = await client.get(
-                f"http://{settings.QDRANT_HOST}:{settings.QDRANT_PORT}/health"
-            )
+            resp = await client.get(f"http://{settings.QDRANT_HOST}:{settings.QDRANT_PORT}/health")
         latency = round((time.monotonic() - start) * 1000, 2)
         if resp.status_code == 200:
             return {"name": "Qdrant", "status": "healthy", "latency_ms": latency}
@@ -97,7 +99,7 @@ async def health_check(
         "data": {
             "overall": overall,
             "services": services,
-            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "checked_at": datetime.now(UTC).isoformat(),
         },
     }
 
@@ -150,6 +152,7 @@ async def load_model(
     Maintainer and admin only — this touches the LLM weight layer.
     """
     import httpx
+
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(300.0)) as client:
             resp = await client.post(
@@ -166,12 +169,12 @@ async def load_model(
                 status_code=502,
                 detail=f"Ollama returned HTTP {resp.status_code}",
             )
-    except httpx.ConnectError:
-        raise HTTPException(status_code=503, detail="Ollama is offline")
+    except httpx.ConnectError as err:
+        raise HTTPException(status_code=503, detail="Ollama is offline") from err
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.get("/model/status", response_model=dict)
@@ -209,6 +212,7 @@ async def trigger_backup(
     In production this would invoke pg_dump and MinIO sync.
     """
     import uuid as _uuid
+
     backup_id = str(_uuid.uuid4())
     return {
         "success": True,
@@ -219,7 +223,7 @@ async def trigger_backup(
             "include_telemetry": body.include_telemetry,
             "include_doctrine": body.include_doctrine,
             "destination": body.destination or "default-backup-volume",
-            "initiated_at": datetime.now(timezone.utc).isoformat(),
+            "initiated_at": datetime.now(UTC).isoformat(),
             "note": "Backup process running in background",
         },
     }
@@ -232,6 +236,7 @@ async def system_metrics(
 ):
     """Return live system metrics."""
     import psutil
+
     try:
         cpu = psutil.cpu_percent(interval=0.1)
         mem = psutil.virtual_memory().percent
@@ -239,10 +244,8 @@ async def system_metrics(
     except Exception:
         cpu = mem = disk = 0.0
 
-    active_sessions = (
-        db.query(TrainingSession).filter(TrainingSession.status == "active").count()
-    )
-    total_users = db.query(User).filter(User.is_active == True).count()
+    active_sessions = db.query(TrainingSession).filter(TrainingSession.status == "active").count()
+    total_users = db.query(User).filter(User.is_active).count()
 
     try:
         pool = engine.pool
@@ -263,6 +266,6 @@ async def system_metrics(
             "total_users": total_users,
             "db_connections": db_connections,
             "uptime_seconds": uptime,
-            "collected_at": datetime.now(timezone.utc).isoformat(),
+            "collected_at": datetime.now(UTC).isoformat(),
         },
     }

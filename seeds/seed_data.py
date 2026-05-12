@@ -6,23 +6,23 @@ Seeds 7 users (matching frontend mock data), 5 scenarios, and 3 doctrine documen
 Idempotent: re-running skips existing records by service_number / title.
 """
 
-import sys
 import os
+import sys
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 
 # Ensure project root is on path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from app.database import SessionLocal, Base, engine
-from app.models.user import User, Cohort
-from app.models.scenario import Scenario
+from app.database import SessionLocal
 from app.models.doctrine import DoctrineDocument
+from app.models.scenario import Scenario
+from app.models.user import User
 from app.services.auth_service import hash_password
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 # ---------------------------------------------------------------------------
@@ -378,11 +378,7 @@ def seed(db):
     # Create users
     created_users: dict[str, User] = {}
     for u_data in USERS:
-        existing = (
-            db.query(User)
-            .filter(User.service_number == u_data["service_number"])
-            .first()
-        )
+        existing = db.query(User).filter(User.service_number == u_data["service_number"]).first()
         if existing:
             print(f"  [SKIP] User exists: {u_data['service_number']} — {u_data['name']}")
             created_users[u_data["service_number"]] = existing
@@ -403,20 +399,20 @@ def seed(db):
             db.add(user)
             db.flush()
             created_users[u_data["service_number"]] = user
-            print(f"  [OK]   Created user: {u_data['service_number']} — {u_data['name']} ({u_data['role']})")
+            print(
+                f"  [OK]   Created user: {u_data['service_number']} — {u_data['name']} ({u_data['role']})"
+            )
 
     db.commit()
 
     # Identify admin and instructor for FK usage
     admin_user = created_users.get("IN-2008-003")
-    instructor_user = created_users.get("IN-2019-042")
+    created_users.get("IN-2019-042")
     creator_id = admin_user.id if admin_user else list(created_users.values())[0].id
 
     # Create scenarios
     for s_data in SCENARIOS:
-        existing = (
-            db.query(Scenario).filter(Scenario.title == s_data["title"]).first()
-        )
+        existing = db.query(Scenario).filter(Scenario.title == s_data["title"]).first()
         if existing:
             print(f"  [SKIP] Scenario exists: {s_data['title'][:60]}")
         else:
@@ -448,6 +444,7 @@ def seed(db):
             print(f"  [SKIP] Doctrine doc exists: {d_data['title']}")
         else:
             import hashlib
+
             content_hash = hashlib.sha256(d_data["content_text"].encode()).hexdigest()
             doc = DoctrineDocument(
                 id=uuid.uuid4(),
@@ -478,6 +475,7 @@ def seed(db):
 if __name__ == "__main__":
     # Create tables if they don't exist (useful for fresh dev environments)
     from app.database import create_all_tables
+
     print("Ensuring database tables exist...")
     create_all_tables()
 
@@ -488,6 +486,7 @@ if __name__ == "__main__":
         db.rollback()
         print(f"\n[ERROR] Seed failed: {exc}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
     finally:

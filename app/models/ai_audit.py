@@ -1,17 +1,17 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, DateTime, ForeignKey, Float, Text
-from sqlalchemy.orm import Mapped, mapped_column
+
+from sqlalchemy import DateTime, Float, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
 from app.database import Base
 
 
 class AIAudit(Base):
     __tablename__ = "ai_audit"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
@@ -29,7 +29,5 @@ class AIAudit(Base):
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, index=True
     )
-    interaction_type: Mapped[str] = mapped_column(
-        String(100), nullable=False
-    )
+    interaction_type: Mapped[str] = mapped_column(String(100), nullable=False)
     # e.g. chat|assess|remediate|hint|scenario_gen

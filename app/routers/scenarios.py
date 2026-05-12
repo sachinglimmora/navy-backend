@@ -1,15 +1,20 @@
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.user import User
+from app.dependencies import get_current_user, require_roles
 from app.models.scenario import Scenario
 from app.models.session import Session as TrainingSession
-from app.schemas.scenario import ScenarioCreate, ScenarioUpdate, ScenarioGenerateRequest, ScenarioStartRequest
-from app.dependencies import get_current_user, require_roles
+from app.models.user import User
+from app.schemas.scenario import (
+    ScenarioCreate,
+    ScenarioGenerateRequest,
+    ScenarioStartRequest,
+    ScenarioUpdate,
+)
 from app.services import ai_service
 
 router = APIRouter(prefix="/scenarios", tags=["Scenarios"])
@@ -36,13 +41,13 @@ def _scenario_to_dict(s: Scenario) -> dict:
 async def list_scenarios(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    domain: Optional[str] = None,
-    difficulty: Optional[str] = None,
+    domain: str | None = None,
+    difficulty: str | None = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """List scenarios with optional domain and difficulty filters."""
-    query = db.query(Scenario).filter(Scenario.is_archived == False)
+    query = db.query(Scenario).filter(not Scenario.is_archived)
     if domain:
         query = query.filter(Scenario.domain == domain)
     if difficulty:
@@ -79,8 +84,8 @@ async def create_scenario(
         estimated_duration_minutes=body.estimated_duration_minutes,
         tags=body.tags,
         is_archived=False,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
     db.add(scenario)
     db.commit()
@@ -123,7 +128,7 @@ async def update_scenario(
 
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(scenario, field, value)
-    scenario.updated_at = datetime.now(timezone.utc)
+    scenario.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(scenario)
 
@@ -146,7 +151,7 @@ async def archive_scenario(
         raise HTTPException(status_code=404, detail="Scenario not found")
 
     scenario.is_archived = True
-    scenario.updated_at = datetime.now(timezone.utc)
+    scenario.updated_at = datetime.now(UTC)
     db.commit()
 
     return {
@@ -164,9 +169,9 @@ async def start_scenario(
     db: Session = Depends(get_db),
 ):
     """Instantiate a training session from this scenario."""
-    scenario = db.query(Scenario).filter(
-        Scenario.id == scenario_id, Scenario.is_archived == False
-    ).first()
+    scenario = (
+        db.query(Scenario).filter(Scenario.id == scenario_id, not Scenario.is_archived).first()
+    )
     if not scenario:
         raise HTTPException(status_code=404, detail="Scenario not found or archived")
 
@@ -176,9 +181,9 @@ async def start_scenario(
         trainee_id=body.trainee_id,
         instructor_id=body.instructor_id,
         status="active",
-        started_at=datetime.now(timezone.utc),
+        started_at=datetime.now(UTC),
         telemetry_log=[],
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     db.add(session)
     db.commit()
@@ -213,7 +218,7 @@ async def get_variants(
         .filter(
             Scenario.domain == scenario.domain,
             Scenario.id != scenario_id,
-            Scenario.is_archived == False,
+            not Scenario.is_archived,
         )
         .limit(10)
         .all()
@@ -248,6 +253,7 @@ async def generate_scenario(
 
     # Attempt to parse JSON from response; fall back to plain text definition
     import json as _json
+
     try:
         definition = _json.loads(ai_response)
     except Exception:
@@ -264,8 +270,8 @@ async def generate_scenario(
         estimated_duration_minutes=body.duration_minutes,
         tags=["ai-generated", body.domain, body.difficulty],
         is_archived=False,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
     db.add(scenario)
     db.commit()

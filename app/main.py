@@ -1,5 +1,6 @@
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,16 +10,16 @@ from app.middleware.rbac import AuditLoggingMiddleware
 
 # Import all routers
 from app.routers import (
-    auth,
-    users,
-    scenarios,
-    sessions,
     ai,
     analytics,
+    auth,
     certifications,
     digital_twin,
     doctrine,
+    scenarios,
+    sessions,
     system,
+    users,
 )
 
 logging.basicConfig(

@@ -1,7 +1,7 @@
-from pydantic import BaseModel
-from typing import Optional
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel
 
 
 class LoginRequest(BaseModel):
@@ -35,7 +35,7 @@ class UserProfile(BaseModel):
     role: str
     classification_clearance: str
     is_active: bool
-    last_login: Optional[datetime] = None
+    last_login: datetime | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

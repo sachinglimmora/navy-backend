@@ -1,23 +1,24 @@
-import uuid
 import hashlib
 import logging
-from datetime import datetime, timezone
+import uuid
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.database import get_db
-from app.models.user import User
-from app.models.ai_audit import AIAudit
-from app.schemas.ai import (
-    ChatRequest,
-    AssessRequest,
-    RemediateRequest,
-    HintRequest,
-    AIOverrideRequest,
-)
-from app.dependencies import get_current_user, require_roles
-from app.services import ai_service
 from app.config import settings
+from app.database import get_db
+from app.dependencies import get_current_user, require_roles
+from app.models.ai_audit import AIAudit
+from app.models.user import User
+from app.schemas.ai import (
+    AIOverrideRequest,
+    AssessRequest,
+    ChatRequest,
+    HintRequest,
+    RemediateRequest,
+)
+from app.services import ai_service
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ def _log_ai_interaction(
         doctrine_version_used=doctrine_version,
         confidence=confidence,
         interaction_type=interaction_type,
-        timestamp=datetime.now(timezone.utc),
+        timestamp=datetime.now(UTC),
     )
     db.add(audit)
     db.commit()
@@ -105,8 +106,8 @@ async def ai_assess(
     prompt = (
         f"You are a naval training evaluator. Score the following trainee action "
         f"against the expected action on a scale of 0.0 to 1.0. "
-        f"Respond with JSON: {{\"score\": float, \"feedback\": str, "
-        f"\"competency_tags\": [str], \"confidence\": float}}\n\n"
+        f'Respond with JSON: {{"score": float, "feedback": str, '
+        f'"competency_tags": [str], "confidence": float}}\n\n'
         f"Expected action: {body.expected_action}\n"
         f"Trainee action: {body.trainee_action}\n"
         f"Context: {body.context or 'No additional context'}\n"
@@ -116,6 +117,7 @@ async def ai_assess(
     response_text = await ai_service.generate(prompt)
 
     import json as _json
+
     try:
         result = _json.loads(response_text)
         score = float(result.get("score", 0.5))
@@ -237,9 +239,7 @@ async def get_audit_log(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     interaction_type: str = None,
-    current_user: User = Depends(
-        require_roles("evaluator", "fleet", "admin")
-    ),
+    current_user: User = Depends(require_roles("evaluator", "fleet", "admin")),
     db: Session = Depends(get_db),
 ):
     """Return the AI interaction audit trail. Evaluator and above."""

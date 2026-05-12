@@ -1,17 +1,16 @@
 import uuid
-from datetime import datetime, timezone
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
 from app.database import get_db
-from app.models.user import User
-from app.models.competency import CompetencyRecord
-from app.models.certification import Certification
-from app.models.session import Session as TrainingSession
-from app.schemas.user import UserCreate, UserUpdate
 from app.dependencies import get_current_user, require_roles
+from app.models.certification import Certification
+from app.models.competency import CompetencyRecord
+from app.models.session import Session as TrainingSession
+from app.models.user import User
+from app.schemas.user import UserCreate, UserUpdate
 from app.services.auth_service import hash_password
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -38,7 +37,7 @@ def _user_to_dict(user: User) -> dict:
 async def list_users(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    role_filter: Optional[str] = Query(None, alias="role"),
+    role_filter: str | None = Query(None, alias="role"),
     current_user: User = Depends(require_roles("admin", "fleet")),
     db: Session = Depends(get_db),
 ):
@@ -67,9 +66,7 @@ async def create_user(
     db: Session = Depends(get_db),
 ):
     """Create a new user. Admin only."""
-    existing = (
-        db.query(User).filter(User.service_number == body.service_number).first()
-    )
+    existing = db.query(User).filter(User.service_number == body.service_number).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -87,8 +84,8 @@ async def create_user(
         password_hash=hash_password(body.password),
         classification_clearance=body.classification_clearance,
         is_active=True,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
     db.add(user)
     db.commit()
@@ -104,13 +101,11 @@ async def create_user(
 async def list_trainees(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    current_user: User = Depends(
-        require_roles("instructor", "evaluator", "fleet", "admin")
-    ),
+    current_user: User = Depends(require_roles("instructor", "evaluator", "fleet", "admin")),
     db: Session = Depends(get_db),
 ):
     """List all trainees. Instructor and above."""
-    query = db.query(User).filter(User.role == "trainee", User.is_active == True)
+    query = db.query(User).filter(User.role == "trainee", User.is_active)
     total = query.count()
     trainees = query.offset((page - 1) * page_size).limit(page_size).all()
     return {
@@ -176,7 +171,7 @@ async def update_user(
 
     for field, value in update_data.items():
         setattr(user, field, value)
-    user.updated_at = datetime.now(timezone.utc)
+    user.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(user)
 
@@ -199,7 +194,7 @@ async def deactivate_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     user.is_active = False
-    user.updated_at = datetime.now(timezone.utc)
+    user.updated_at = datetime.now(UTC)
     db.commit()
 
     return {
@@ -229,9 +224,7 @@ async def user_analytics(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
     # Group competency records by domain
-    records = (
-        db.query(CompetencyRecord).filter(CompetencyRecord.user_id == user_id).all()
-    )
+    records = db.query(CompetencyRecord).filter(CompetencyRecord.user_id == user_id).all()
     domain_map: dict = {}
     for rec in records:
         if rec.domain not in domain_map:
@@ -250,14 +243,10 @@ async def user_analytics(
         for domain, data in domain_map.items()
     ]
 
-    total_sessions = (
-        db.query(TrainingSession)
-        .filter(TrainingSession.trainee_id == user_id)
-        .count()
-    )
+    total_sessions = db.query(TrainingSession).filter(TrainingSession.trainee_id == user_id).count()
     certs_count = (
         db.query(Certification)
-        .filter(Certification.user_id == user_id, Certification.is_revoked == False)
+        .filter(Certification.user_id == user_id, not Certification.is_revoked)
         .count()
     )
 
