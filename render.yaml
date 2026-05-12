@@ -1,0 +1,84 @@
+services:
+  # 1. FastAPI Backend API
+  - type: web
+    name: aegis-api
+    runtime: docker
+    env: docker
+    plan: free
+    region: oregon
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: aegis-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: aegis-redis
+          property: connectionString
+      - key: QDRANT_HOST
+        value: aegis-qdrant
+      - key: QDRANT_PORT
+        value: 6333
+      - key: MINIO_ENDPOINT
+        value: aegis-minio:9000
+      - key: ENVIRONMENT
+        value: production
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 60
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: 7
+      - key: SECRET_KEY
+        generateValue: true
+      - key: OLLAMA_BASE_URL
+        value: http://change-this-to-your-remote-ollama:11434
+      - key: OLLAMA_MODEL
+        value: mistral
+      - key: CORS_ORIGINS
+        value: '["http://localhost:3000"]' # Update this to your frontend URL later
+
+  # 2. Redis Cache
+  - type: redis
+    name: aegis-redis
+    plan: free
+    region: oregon
+    ipAllowList: [] # Private to the service group
+
+  # 3. Qdrant Vector Database
+  - type: pserv
+    name: aegis-qdrant
+    runtime: docker
+    plan: free
+    region: oregon
+    envVars:
+      - key: QDRANT__STORAGE__STORAGE_PATH
+        value: /qdrant/storage
+    disk:
+      name: qdrant-data
+      mountPath: /qdrant/storage
+      sizeGB: 1
+
+  # 4. MinIO Object Storage
+  - type: pserv
+    name: aegis-minio
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerCommand: server /data --console-address ":9001"
+    envVars:
+      - key: MINIO_ROOT_USER
+        value: aegis_admin
+      - key: MINIO_ROOT_PASSWORD
+        generateValue: true
+    disk:
+      name: minio-data
+      mountPath: /data
+      sizeGB: 1
+
+databases:
+  # 5. PostgreSQL Database
+  - name: aegis-db
+    plan: free
+    region: oregon
